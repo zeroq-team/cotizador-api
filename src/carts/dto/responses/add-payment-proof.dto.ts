@@ -1,5 +1,6 @@
-import { IsNumber, IsString, IsOptional, Min, IsEnum } from 'class-validator';
+import { IsNumber, IsString, IsOptional, Min, IsEnum, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 
 export class AddPaymentProofDto {
   @ApiProperty({
@@ -8,7 +9,9 @@ export class AddPaymentProofDto {
     example: 'bank_transfer',
     type: String,
   })
-  @IsEnum(['bank_transfer', 'check'])
+  @IsNotEmpty({ message: 'El tipo de pago es requerido' })
+  @IsEnum(['bank_transfer', 'check'], { message: 'El tipo de pago debe ser bank_transfer o check' })
+  @Transform(({ value }) => value?.trim())
   paymentType: 'bank_transfer' | 'check';
 
   @ApiProperty({
@@ -16,7 +19,8 @@ export class AddPaymentProofDto {
     example: 100000,
     type: Number,
   })
-  @IsNumber()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'El monto debe ser un número' })
   @Min(0)
   amount: number;
 
