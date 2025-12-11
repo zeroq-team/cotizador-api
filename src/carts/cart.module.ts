@@ -5,14 +5,16 @@ import { CartRepository } from './cart.repository';
 import { CartChangelogRepository } from './cart-changelog.repository';
 import { CartGateway } from './cart.gateway';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
+import { QuotePdfGeneratorService } from './services/quote-pdf-generator.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProductsModule } from '../products/products.module';
 import { PaymentModule } from '../payments/payment.module';
 import { ConversationsService } from '../conversations/conversations.service';
 import { PriceListsModule } from '../price-lists/price-lists.module';
+import { OrganizationModule } from '../organization/organization.module';
 
 @Module({
-  imports: [DatabaseModule, ProductsModule, PaymentModule, PriceListsModule],
+  imports: [DatabaseModule, ProductsModule, PaymentModule, PriceListsModule, OrganizationModule],
   controllers: [CartController],
   providers: [
     CartService,
@@ -21,6 +23,7 @@ import { PriceListsModule } from '../price-lists/price-lists.module';
     CartGateway,
     ConversationsService,
     PriceListEvaluationService,
+    QuotePdfGeneratorService,
   ],
   exports: [CartService, CartGateway, PriceListEvaluationService],
 })

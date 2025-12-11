@@ -1,9 +1,22 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable global validation pipe with transform
+  // app.useGlobalPipes(
+  //   new ValidationPipe({
+  //     transform: true, // Habilita la transformación automática de tipos
+  //     transformOptions: {
+  //       enableImplicitConversion: true, // Convierte tipos automáticamente
+  //     },
+  //     whitelist: true, // Elimina propiedades no definidas en el DTO
+  //     forbidNonWhitelisted: false, // No lanza error por propiedades extra
+  //   }),
+  // );
   
   // Enable CORS - Allow all origins for now
   app.enableCors({

@@ -13,6 +13,8 @@ import {
   UseInterceptors,
   Headers,
   BadRequestException,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -23,7 +25,9 @@ import {
   ApiBody,
   ApiConsumes,
   ApiHeader,
+  ApiProduces,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 import { CartService } from './cart.service';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
@@ -348,6 +352,57 @@ export class CartController {
   @Get(':id/changelog')
   async getCartChangelog(@Param('id') id: string) {
     return await this.cartService.getCartChangelog(id);
+  }
+
+  @ApiOperation({
+    summary: 'Generar PDF de la cotización',
+    description:
+      'Genera y descarga un documento PDF con el detalle completo de la cotización, incluyendo información del cliente, productos y totales.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID único del carrito/cotización',
+    example: 'cart_123456',
+    type: String,
+  })
+  @ApiHeader({
+    name: 'X-Organization-ID',
+    description: 'ID de la organización (opcional, se usa para incluir el nombre de la organización en el PDF)',
+    required: false,
+    example: 2,
+  })
+  @ApiProduces('application/pdf')
+  @ApiResponse({
+    status: 200,
+    description: 'PDF de la cotización generado exitosamente',
+    content: {
+      'application/pdf': {
+        schema: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, type: ErrorResponseDto })
+  @Get(':id/pdf')
+  async generateQuotePdf(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const pdfBuffer = await this.cartService.generateQuotePdf(id, organizationId);
+    
+    const quoteNumber = id.slice(-8).toUpperCase();
+    const filename = `cotizacion-${quoteNumber}.pdf`;
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    return new StreamableFile(pdfBuffer);
   }
 
   @ApiOperation({

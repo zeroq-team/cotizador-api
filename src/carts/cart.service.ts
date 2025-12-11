@@ -20,6 +20,8 @@ import { CreateProofPaymentDto } from '../payments/dto/create-proof-payment.dto'
 import { ConversationsService } from '../conversations/conversations.service';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { PriceListsService } from '../price-lists/price-lists.service';
+import { QuotePdfGeneratorService } from './services/quote-pdf-generator.service';
+import { OrganizationService } from '../organization/organization.service';
 
 @Injectable()
 export class CartService {
@@ -35,6 +37,8 @@ export class CartService {
     private readonly priceListEvaluationService: PriceListEvaluationService,
     @Inject(forwardRef(() => PriceListsService))
     private readonly priceListsService: PriceListsService,
+    private readonly quotePdfGeneratorService: QuotePdfGeneratorService,
+    private readonly organizationService: OrganizationService,
   ) {}
 
   async createCart(
@@ -497,6 +501,7 @@ export class CartService {
               product.inventory?.[0]?.available || item.quantity,
             ),
             imageUrl: product.media?.[0]?.url || null,
+            metadata: product.metadata || {},
           };
 
           suggestions.push(newCartItem);
@@ -631,5 +636,32 @@ export class CartService {
       id: deletedCart.id,
       conversationId: deletedCart.conversationId,
     };
+  }
+
+  /**
+   * Genera un PDF de la cotización
+   */
+  async generateQuotePdf(cartId: string, organizationId?: string): Promise<Buffer> {
+    const cart = await this.cartRepository.findByIdWithItems(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    let organizationName: string | undefined;
+
+    // Obtener nombre de la organización si se proporciona el ID
+    if (organizationId) {
+      try {
+        const organization = await this.organizationService.findOne(Number(organizationId));
+        organizationName = organization.name;
+      } catch (error) {
+        this.logger.warn(`Could not fetch organization ${organizationId}: ${error.message}`);
+      }
+    }
+
+    return this.quotePdfGeneratorService.generateQuotePdf({
+      cart,
+      organizationName,
+    });
   }
 }
