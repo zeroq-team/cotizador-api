@@ -501,6 +501,7 @@ export class CartService {
               product.inventory?.[0]?.available || item.quantity,
             ),
             imageUrl: product.media?.[0]?.url || null,
+            // @ts-ignore
             metadata: product.metadata || {},
           };
 
