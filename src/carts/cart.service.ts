@@ -444,7 +444,9 @@ export class CartService {
     }
 
     // Emit real-time event
-    this.cartGateway.emitCartUpdated(id, cartWithItems);
+    if (updateCartDto.items && updateCartDto.items.length > 0) {
+      this.cartGateway.emitCartUpdated(id, cartWithItems);
+    }
 
     return cartWithItems;
   }
@@ -624,14 +626,21 @@ export class CartService {
   /**
    * Elimina un carrito por conversation ID
    */
-  async deleteCartByConversationId(conversationId: string): Promise<{ id: string; conversationId: string }> {
-    const deletedCart = await this.cartRepository.deleteByConversationId(conversationId);
-    
+  async deleteCartByConversationId(
+    conversationId: string,
+  ): Promise<{ id: string; conversationId: string }> {
+    const deletedCart =
+      await this.cartRepository.deleteByConversationId(conversationId);
+
     if (!deletedCart) {
-      throw new NotFoundException(`Cart with conversation ID ${conversationId} not found`);
+      throw new NotFoundException(
+        `Cart with conversation ID ${conversationId} not found`,
+      );
     }
 
-    this.logger.log(`Cart ${deletedCart.id} deleted for conversation ${conversationId}`);
+    this.logger.log(
+      `Cart ${deletedCart.id} deleted for conversation ${conversationId}`,
+    );
 
     return {
       id: deletedCart.id,
@@ -642,7 +651,10 @@ export class CartService {
   /**
    * Genera un PDF de la cotización
    */
-  async generateQuotePdf(cartId: string, organizationId?: string): Promise<Buffer> {
+  async generateQuotePdf(
+    cartId: string,
+    organizationId?: string,
+  ): Promise<Buffer> {
     const cart = await this.cartRepository.findByIdWithItems(cartId);
     if (!cart) {
       throw new NotFoundException(`Cart with ID ${cartId} not found`);
@@ -653,10 +665,14 @@ export class CartService {
     // Obtener nombre de la organización si se proporciona el ID
     if (organizationId) {
       try {
-        const organization = await this.organizationService.findOne(Number(organizationId));
+        const organization = await this.organizationService.findOne(
+          Number(organizationId),
+        );
         organizationName = organization.name;
       } catch (error) {
-        this.logger.warn(`Could not fetch organization ${organizationId}: ${error.message}`);
+        this.logger.warn(
+          `Could not fetch organization ${organizationId}: ${error.message}`,
+        );
       }
     }
 
