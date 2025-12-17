@@ -308,5 +308,110 @@ export class ProductPriceRepository {
       )
       .orderBy(productPrices.productId, productPrices.priceListId);
   }
+
+  /**
+   * Obtiene todos los precios de un producto (activos e inactivos)
+   */
+  async findAllByProductId(
+    productId: number,
+    organizationId: number,
+  ): Promise<ProductPriceWithProduct[]> {
+    return await this.databaseService.db
+      .select()
+      .from(productPrices)
+      .where(
+        and(
+          eq(productPrices.productId, productId),
+          eq(productPrices.organizationId, organizationId),
+        ),
+      )
+      .orderBy(productPrices.priceListId);
+  }
+
+  /**
+   * Crea o actualiza un precio de producto (upsert)
+   * Si ya existe un precio para el producto en la lista de precios, lo actualiza
+   */
+  async upsert(data: {
+    organizationId: number;
+    productId: number;
+    priceListId: number;
+    currency: string;
+    amount: string;
+    taxIncluded: boolean;
+    validFrom?: Date | null;
+    validTo?: Date | null;
+  }): Promise<ProductPriceWithProduct> {
+    const now = new Date();
+
+    // Verificar si ya existe un precio
+    const existing = await this.databaseService.db
+      .select()
+      .from(productPrices)
+      .where(
+        and(
+          eq(productPrices.organizationId, data.organizationId),
+          eq(productPrices.productId, data.productId),
+          eq(productPrices.priceListId, data.priceListId),
+        ),
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      // Actualizar precio existente
+      const updated = await this.databaseService.db
+        .update(productPrices)
+        .set({
+          amount: data.amount,
+          currency: data.currency,
+          taxIncluded: data.taxIncluded,
+          validFrom: data.validFrom !== undefined ? data.validFrom : existing[0].validFrom,
+          validTo: data.validTo !== undefined ? data.validTo : existing[0].validTo,
+          updatedAt: now,
+        })
+        .where(eq(productPrices.id, existing[0].id))
+        .returning();
+
+      return updated[0];
+    } else {
+      // Crear nuevo precio
+      const inserted = await this.databaseService.db
+        .insert(productPrices)
+        .values({
+          organizationId: data.organizationId,
+          productId: data.productId,
+          priceListId: data.priceListId,
+          currency: data.currency,
+          amount: data.amount,
+          taxIncluded: data.taxIncluded,
+          validFrom: data.validFrom || null,
+          validTo: data.validTo || null,
+        })
+        .returning();
+
+      return inserted[0];
+    }
+  }
+
+  /**
+   * Elimina un precio de producto
+   */
+  async delete(
+    productId: number,
+    priceListId: number,
+    organizationId: number,
+  ): Promise<boolean> {
+    const result = await this.databaseService.db
+      .delete(productPrices)
+      .where(
+        and(
+          eq(productPrices.productId, productId),
+          eq(productPrices.priceListId, priceListId),
+          eq(productPrices.organizationId, organizationId),
+        ),
+      );
+
+    return true;
+  }
 }
 

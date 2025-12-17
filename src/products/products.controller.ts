@@ -28,6 +28,7 @@ import {
   PaginatedProductsDto,
   CreateProductMediaDto,
   UpdateProductMediaDto,
+  UpsertProductPriceDto,
 } from './dto';
 
 @ApiTags('products')
@@ -196,5 +197,59 @@ export class ProductsController {
       throw new BadRequestException('El header X-Organization-ID es obligatorio');
     }
     return await this.productsService.deleteProductMedia(Number(id), Number(mediaId), organizationId);
+  }
+
+  // ============================================
+  // PRODUCT PRICES ENDPOINTS
+  // ============================================
+
+  @Get(':id/prices')
+  @ApiOperation({ summary: 'Obtener todos los precios del producto' })
+  @ApiParam({ name: 'id', description: 'ID del producto' })
+  @ApiResponse({ status: 200, description: 'Lista de precios del producto' })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
+  async getProductPrices(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.productsService.getProductPrices(Number(id), organizationId);
+  }
+
+  @Post(':id/prices')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Crear o actualizar precio del producto en una lista de precios' })
+  @ApiParam({ name: 'id', description: 'ID del producto' })
+  @ApiResponse({ status: 201, description: 'Precio creado/actualizado' })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
+  async upsertProductPrice(
+    @Param('id') id: string,
+    @Body() priceData: UpsertProductPriceDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.productsService.upsertProductPrice(Number(id), organizationId, priceData);
+  }
+
+  @Delete(':id/prices/:priceListId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar precio del producto de una lista de precios' })
+  @ApiParam({ name: 'id', description: 'ID del producto' })
+  @ApiParam({ name: 'priceListId', description: 'ID de la lista de precios' })
+  @ApiResponse({ status: 204, description: 'Precio eliminado' })
+  @ApiResponse({ status: 404, description: 'Producto o precio no encontrado' })
+  async deleteProductPrice(
+    @Param('id') id: string,
+    @Param('priceListId') priceListId: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.productsService.deleteProductPrice(Number(id), Number(priceListId), organizationId);
   }
 }

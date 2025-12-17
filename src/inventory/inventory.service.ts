@@ -10,7 +10,7 @@ export class InventoryService {
     private readonly inventoryLevelRepository: InventoryLevelRepository,
     private readonly databaseService: DatabaseService,
   ) {}
-  async getInventory(params?: any): Promise<any[]> {
+  async getInventory(params?: any): Promise<any> {
     const filters: any = {};
 
     // Parsear organizationId si está disponible (normalmente viene del contexto de la request)
@@ -43,9 +43,23 @@ export class InventoryService {
       filters.inStock = true;
     }
 
-    const inventoryLevels = await this.inventoryLevelRepository.findManyWithProduct(
-      filters,
-    );
+    // Parámetros de paginación
+    const page = params?.page ? parseInt(params.page, 10) : 1;
+    const limit = params?.limit ? parseInt(params.limit, 10) : 20;
+    const offset = (page - 1) * limit;
+
+    filters.limit = limit;
+    filters.offset = offset;
+
+    // Obtener total de registros y datos paginados en paralelo
+    const [inventoryLevels, totalCount] = await Promise.all([
+      this.inventoryLevelRepository.findManyWithProduct(filters),
+      this.inventoryLevelRepository.countWithProduct({
+        ...filters,
+        limit: undefined,
+        offset: undefined,
+      }),
+    ]);
 
     // Obtener información de ubicaciones si es necesario
     const locationIds = [
@@ -65,7 +79,7 @@ export class InventoryService {
     );
 
     // Mapear a formato de respuesta esperado
-    return inventoryLevels.map((inv) => {
+    const data = inventoryLevels.map((inv) => {
       const onHand = Number(inv.onHand);
       const reserved = Number(inv.reserved);
       const available = onHand - reserved;
@@ -92,6 +106,21 @@ export class InventoryService {
         lastUpdated: inv.updatedAt?.toISOString() || inv.createdAt.toISOString(),
       };
     });
+
+    // Calcular metadata de paginación
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        totalItems: totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
   }
 
   /**

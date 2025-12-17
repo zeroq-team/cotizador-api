@@ -16,6 +16,8 @@ export interface InventoryLevelFilters {
   sku?: string;
   minStock?: number;
   inStock?: boolean;
+  limit?: number;
+  offset?: number;
 }
 
 export interface InventoryLevelWithProduct extends InventoryLevel {
@@ -111,7 +113,7 @@ export class InventoryLevelRepository {
       );
     }
 
-    const query = this.databaseService.db
+    let query = this.databaseService.db
       .select({
         id: inventoryLevels.id,
         organizationId: inventoryLevels.organizationId,
@@ -129,7 +131,67 @@ export class InventoryLevelRepository {
       query.where(and(...conditions));
     }
 
-    return await query.orderBy(desc(inventoryLevels.updatedAt));
+    query.orderBy(desc(inventoryLevels.updatedAt));
+
+    // Aplicar paginación si se especifica
+    if (filters?.limit !== undefined) {
+      query.limit(filters.limit);
+    }
+
+    if (filters?.offset !== undefined) {
+      query.offset(filters.offset);
+    }
+
+    return await query;
+  }
+
+  /**
+   * Cuenta el total de registros con los filtros aplicados
+   */
+  async countWithProduct(filters?: InventoryLevelFilters): Promise<number> {
+    const conditions = [];
+
+    if (filters?.organizationId) {
+      conditions.push(eq(inventoryLevels.organizationId, filters.organizationId));
+    }
+
+    if (filters?.productId) {
+      conditions.push(eq(inventoryLevels.productId, filters.productId));
+    }
+
+    if (filters?.productIds && filters.productIds.length > 0) {
+      conditions.push(inArray(inventoryLevels.productId, filters.productIds));
+    }
+
+    if (filters?.locationId) {
+      conditions.push(eq(inventoryLevels.locationId, filters.locationId));
+    }
+
+    if (filters?.sku) {
+      conditions.push(eq(products.sku, filters.sku));
+    }
+
+    if (filters?.minStock !== undefined) {
+      conditions.push(gte(inventoryLevels.onHand, filters.minStock.toString()));
+    }
+
+    if (filters?.inStock === true) {
+      conditions.push(
+        sql`${inventoryLevels.onHand} - ${inventoryLevels.reserved} > 0`
+      );
+    }
+
+    let query = this.databaseService.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(inventoryLevels)
+      .leftJoin(products, eq(inventoryLevels.productId, products.id));
+
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+
+    const result = await query;
+    return result[0]?.count || 0;
   }
 
   /**

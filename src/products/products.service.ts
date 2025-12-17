@@ -917,4 +917,155 @@ export class ProductsService {
 
     return { success: true };
   }
+
+  // ============================================
+  // PRODUCT PRICES METHODS
+  // ============================================
+
+  /**
+   * Obtiene todos los precios de un producto
+   */
+  async getProductPrices(productId: number, organizationId: string) {
+    const orgId = parseInt(organizationId, 10);
+
+    // Verificar que el producto existe
+    const product = await this.productRepository.findById(productId, orgId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    // Obtener todos los precios del producto
+    const prices = await this.productPriceRepository.findAllByProductId(
+      productId,
+      orgId,
+    );
+
+    // Obtener información de las listas de precios
+    const priceListIds = [...new Set(prices.map((p) => p.priceListId))];
+    const priceLists = await Promise.all(
+      priceListIds.map((id) =>
+        this.priceListService.getPriceListById(id.toString(), organizationId),
+      ),
+    );
+
+    const priceListMap = new Map(
+      priceLists.map((pl) => [pl.id, pl]),
+    );
+
+    // Mapear al formato esperado
+    return prices.map((price) => {
+      const priceList = priceListMap.get(price.priceListId);
+
+      return {
+        id: price.id,
+        product_id: price.productId,
+        price_list_id: price.priceListId,
+        price_list_name: priceList?.name || '',
+        price_list_is_default: priceList?.isDefault || false,
+        currency: price.currency,
+        amount: price.amount,
+        tax_included: price.taxIncluded,
+        valid_from: price.validFrom?.toISOString() || null,
+        valid_to: price.validTo?.toISOString() || null,
+        created_at: price.createdAt.toISOString(),
+        updated_at: price.updatedAt.toISOString(),
+      };
+    });
+  }
+
+  /**
+   * Crea o actualiza un precio de producto
+   */
+  async upsertProductPrice(
+    productId: number,
+    organizationId: string,
+    data: {
+      priceListId: number;
+      amount: string;
+      currency: string;
+      taxIncluded: boolean;
+      validFrom?: Date;
+      validTo?: Date;
+    },
+  ) {
+    const orgId = parseInt(organizationId, 10);
+
+    // Verificar que el producto existe
+    const product = await this.productRepository.findById(productId, orgId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    // Verificar que la lista de precios existe
+    const priceList = await this.priceListService.getPriceListById(
+      data.priceListId.toString(),
+      organizationId,
+    );
+    if (!priceList) {
+      throw new NotFoundException(
+        `Price list with ID ${data.priceListId} not found`,
+      );
+    }
+
+    // Crear o actualizar el precio
+    const price = await this.productPriceRepository.upsert({
+      organizationId: orgId,
+      productId,
+      priceListId: data.priceListId,
+      currency: data.currency,
+      amount: data.amount,
+      taxIncluded: data.taxIncluded,
+      validFrom: data.validFrom || null,
+      validTo: data.validTo || null,
+    });
+
+    return {
+      id: price.id,
+      product_id: price.productId,
+      price_list_id: price.priceListId,
+      price_list_name: priceList.name,
+      price_list_is_default: priceList.isDefault,
+      currency: price.currency,
+      amount: price.amount,
+      tax_included: price.taxIncluded,
+      valid_from: price.validFrom?.toISOString() || null,
+      valid_to: price.validTo?.toISOString() || null,
+      created_at: price.createdAt.toISOString(),
+      updated_at: price.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Elimina un precio de producto
+   */
+  async deleteProductPrice(
+    productId: number,
+    priceListId: number,
+    organizationId: string,
+  ) {
+    const orgId = parseInt(organizationId, 10);
+
+    // Verificar que el producto existe
+    const product = await this.productRepository.findById(productId, orgId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    // Verificar que existe el precio
+    const price = await this.productPriceRepository.findByProductAndPriceList(
+      productId,
+      priceListId,
+      orgId,
+    );
+
+    if (!price) {
+      throw new NotFoundException(
+        `Price not found for product ${productId} in price list ${priceListId}`,
+      );
+    }
+
+    await this.productPriceRepository.delete(productId, priceListId, orgId);
+
+    return { success: true };
+  }
 }
