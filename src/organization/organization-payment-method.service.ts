@@ -71,11 +71,11 @@ export class OrganizationPaymentMethodService {
     const paymentMethod =
       await this.paymentMethodRepository.findByOrganizationId(organizationId);
 
-    if (!paymentMethod) {
-      throw new NotFoundException(
-        `Payment methods for organization ID ${organizationId} not found`,
-      );
-    }
+    // if (!paymentMethod) {
+    //   throw new NotFoundException(
+    //     `Payment methods for organization ID ${organizationId} not found`,
+    //   );
+    // }
 
     return paymentMethod;
   }
