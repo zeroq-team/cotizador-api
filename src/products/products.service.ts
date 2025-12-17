@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { ProductRepository } from './repositories/product.repository';
 import { ProductMediaRepository } from './repositories/product-media.repository';
 import { ProductRelationRepository } from './repositories/product-relation.repository';
@@ -207,10 +212,11 @@ export class ProductsService {
     });
 
     // Obtener inventario de todos los productos relacionados usando el servicio
-    const allInventory = await this.inventoryService.getInventoryWithLocationsByProductIds(
-      relatedProductIds,
-      orgId,
-    );
+    const allInventory =
+      await this.inventoryService.getInventoryWithLocationsByProductIds(
+        relatedProductIds,
+        orgId,
+      );
 
     // Agrupar inventario por productId
     const inventoryByProductId = new Map<number, typeof allInventory>();
@@ -373,7 +379,10 @@ export class ProductsService {
     const inventoryMap: Map<number, any[]> = new Map();
     const includeInventory = params?.include?.includes('inventory');
     if (includeInventory) {
-      const allInventory = await this.inventoryService.getInventoryByProductIds(productIds, orgId);
+      const allInventory = await this.inventoryService.getInventoryByProductIds(
+        productIds,
+        orgId,
+      );
 
       allInventory.forEach((inv) => {
         const inventoryArray = inventoryMap.get(inv.productId) || [];
@@ -387,18 +396,17 @@ export class ProductsService {
     const includePrices = params?.include?.includes('prices');
     if (includePrices && productIds.length > 0) {
       // Obtener precios usando el servicio de listas de precios
-      const allPrices = await this.priceListService.getProductPricesByProductIds(
-        productIds,
-        organizationId,
-      );
+      const allPrices =
+        await this.priceListService.getProductPricesByProductIds(
+          productIds,
+          organizationId,
+        );
 
       // Necesitamos obtener el productId de cada precio
       // El método del servicio retorna precios pero necesitamos mapearlos por productId
       // Por eso obtenemos los precios del repositorio que incluye productId
-      const pricesWithProductId = await this.productPriceRepository.findByProductIds(
-        productIds,
-        orgId,
-      );
+      const pricesWithProductId =
+        await this.productPriceRepository.findByProductIds(productIds, orgId);
 
       // Crear un mapa de precios del servicio por price_list_id para obtener info adicional
       const servicePriceMap = new Map(
@@ -409,7 +417,7 @@ export class ProductsService {
       pricesWithProductId.forEach((price) => {
         const priceArray = priceMap.get(price.productId) || [];
         const servicePrice = servicePriceMap.get(price.priceListId);
-        
+
         priceArray.push({
           id: price.id,
           price_list_id: price.priceListId,
@@ -426,18 +434,16 @@ export class ProductsService {
       });
     }
 
-
-
     const products = dbProducts.map((p) => {
       const media = mediaMap.get(p.id) || [];
       const inventory = inventoryMap.get(p.id) || [];
       const prices = priceMap.get(p.id) || [];
-      
+
       const product = this.mapToProductType(p, includeMedia, media, inventory);
       if (includePrices) {
         product.prices = prices;
       }
-      
+
       return product;
     });
 
@@ -514,7 +520,12 @@ export class ProductsService {
    * Convierte valores vacíos a null para números (asegura tipo correcto)
    */
   private toNullableNumber(value: any): number | null {
-    if (value === null || value === undefined || value === '' || isNaN(Number(value))) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === '' ||
+      isNaN(Number(value))
+    ) {
       return null;
     }
     return Number(value);
@@ -752,9 +763,8 @@ export class ProductsService {
             available: available,
           };
         },
-
       );
-      console.log("mappedInventory", mappedInventory)
+      console.log('mappedInventory', mappedInventory);
 
       return {
         ...this.mapToProductType(product, true, mappedMedia),
@@ -764,14 +774,147 @@ export class ProductsService {
     });
   }
 
+  // ============================================
+  // MEDIA MANAGEMENT - Direct Database Methods
+  // ============================================
+
   /**
-   * Upload file - No implementado aún
+   * Obtiene todos los medios de un producto
    */
-  async upload<T = any>(
-    url: string,
-    formData: FormData,
-    organizationId?: string,
-  ): Promise<T> {
-    throw new Error('File upload not implemented yet');
+  async getProductMedia(productId: number, organizationId: string) {
+    const orgId = parseInt(organizationId, 10);
+
+    // Verificar que el producto existe
+    const product = await this.productRepository.findById(productId, orgId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    const media = await this.productMediaRepository.findByProductId(
+      productId,
+      orgId,
+    );
+    return this.mapToProductMediaType(media);
+  }
+
+  /**
+   * Agrega un nuevo medio a un producto
+   */
+  async addProductMedia(
+    productId: number,
+    organizationId: string,
+    data: {
+      url: string;
+      type: string;
+      alt_text?: string;
+      is_primary?: boolean;
+      sort_order?: number;
+    },
+  ) {
+    const orgId = parseInt(organizationId, 10);
+
+    // Verificar que el producto existe
+    const product = await this.productRepository.findById(productId, orgId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    const newMedia = await this.productMediaRepository.create({
+      productId,
+      organizationId: orgId,
+      url: data.url,
+      type: data.type,
+      altText: data.alt_text || null,
+      isPrimary: data.is_primary || false,
+      position: data.sort_order || 0,
+    });
+
+    return {
+      id: newMedia.id,
+      type: newMedia.type,
+      url: newMedia.url,
+      position: newMedia.position,
+      alt_text: newMedia.altText,
+      is_primary: newMedia.isPrimary,
+      created_at: newMedia.createdAt.toISOString(),
+      updated_at: newMedia.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Actualiza un medio existente
+   */
+  async updateProductMedia(
+    productId: number,
+    mediaId: number,
+    organizationId: string,
+    data: {
+      url?: string;
+      type?: string;
+      alt_text?: string;
+      is_primary?: boolean;
+      sort_order?: number;
+    },
+  ) {
+    const orgId = parseInt(organizationId, 10);
+
+    // Verificar que el producto existe
+    const product = await this.productRepository.findById(productId, orgId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    const updateData: any = {};
+    if (data.url !== undefined) updateData.url = data.url;
+    if (data.type !== undefined) updateData.type = data.type;
+    if (data.alt_text !== undefined) updateData.altText = data.alt_text;
+    if (data.is_primary !== undefined) updateData.isPrimary = data.is_primary;
+    if (data.sort_order !== undefined) updateData.position = data.sort_order;
+
+    const updatedMedia = await this.productMediaRepository.update(
+      mediaId,
+      orgId,
+      updateData,
+    );
+
+    if (!updatedMedia) {
+      throw new NotFoundException(`Media with ID ${mediaId} not found`);
+    }
+
+    return {
+      id: updatedMedia.id,
+      type: updatedMedia.type,
+      url: updatedMedia.url,
+      position: updatedMedia.position,
+      alt_text: updatedMedia.altText,
+      is_primary: updatedMedia.isPrimary,
+      created_at: updatedMedia.createdAt.toISOString(),
+      updated_at: updatedMedia.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Elimina un medio
+   */
+  async deleteProductMedia(
+    productId: number,
+    mediaId: number,
+    organizationId: string,
+  ) {
+    const orgId = parseInt(organizationId, 10);
+
+    // Verificar que el producto existe
+    const product = await this.productRepository.findById(productId, orgId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    const deleted = await this.productMediaRepository.delete(mediaId, orgId);
+
+    if (!deleted) {
+      throw new NotFoundException(`Media with ID ${mediaId} not found`);
+    }
+
+    return { success: true };
   }
 }
