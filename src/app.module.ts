@@ -3,8 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
-import { CustomizationGroupModule } from './customization-groups/customization-group.module';
-import { CustomizationFieldGroupModule } from './customization-field-groups/customization-field-group.module';
 import { CustomizationFieldModule } from './customization-fields/customization-field.module';
 import { ProductsModule } from './products/products.module';
 import { CartModule } from './carts/cart.module';
@@ -16,6 +14,7 @@ import { OrganizationModule } from './organization/organization.module';
 import { PriceListsModule } from './price-lists/price-lists.module';
 import { PriceListConditionsModule } from './price-list-conditions/price-list-conditions.module';
 import configuration from './config/configuration';
+import { CustomizationFieldGroupModule } from './customization-field-groups/customization-field-group.module';
 
 @Module({
   imports: [
@@ -25,7 +24,6 @@ import configuration from './config/configuration';
       load: [configuration],
     }),
     DatabaseModule,
-    CustomizationGroupModule,
     CustomizationFieldGroupModule,
     CustomizationFieldModule,
     ProductsModule,

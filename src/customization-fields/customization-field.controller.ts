@@ -9,6 +9,7 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Headers,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +18,7 @@ import {
   ApiParam,
   ApiBody,
   ApiQuery,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { CustomizationFieldService } from './customization-field.service';
 import { CreateCustomizationFieldDto } from './dto/create-customization-field.dto';
@@ -30,6 +32,12 @@ import {
 
 @ApiTags('customization-fields')
 @Controller('customization-fields')
+@ApiHeader({
+  name: 'x-organization-id',
+  description: 'ID de la organización',
+  required: true,
+  schema: { type: 'string' },
+})
 export class CustomizationFieldController {
   constructor(private readonly customizationFieldService: CustomizationFieldService) {}
 
@@ -45,8 +53,11 @@ export class CustomizationFieldController {
     type: CustomizationFieldResponseDto
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos o error de validación' })
-  create(@Body() createCustomizationFieldDto: CreateCustomizationFieldDto) {
-    return this.customizationFieldService.create(createCustomizationFieldDto);
+  create(
+    @Body() createCustomizationFieldDto: CreateCustomizationFieldDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.customizationFieldService.create(createCustomizationFieldDto, Number(organizationId));
   }
 
   @Get()
@@ -59,8 +70,8 @@ export class CustomizationFieldController {
     description: 'Lista obtenida exitosamente',
     type: [CustomizationFieldResponseDto]
   })
-  findAll() {
-    return this.customizationFieldService.findAll();
+  findAll(@Headers('x-organization-id') organizationId: string) {
+    return this.customizationFieldService.findAll(Number(organizationId));
   }
 
   @Get('grouped/all')
@@ -72,8 +83,8 @@ export class CustomizationFieldController {
     status: 200, 
     description: 'Campos agrupados obtenidos exitosamente'
   })
-  findAllGrouped() {
-    return this.customizationFieldService.findAllGrouped();
+  findAllGrouped(@Headers('x-organization-id') organizationId: string) {
+    return this.customizationFieldService.findAllGrouped(Number(organizationId));
   }
 
   @Get(':id')
@@ -85,8 +96,11 @@ export class CustomizationFieldController {
     type: CustomizationFieldResponseDto
   })
   @ApiResponse({ status: 404, description: 'Campo no encontrado' })
-  findOne(@Param('id') id: string) {
-    return this.customizationFieldService.findById(id);
+  findOne(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.customizationFieldService.findById(id, Number(organizationId));
   }
 
   @Patch(':id')
@@ -98,8 +112,12 @@ export class CustomizationFieldController {
     type: CustomizationFieldResponseDto
   })
   @ApiResponse({ status: 404, description: 'Campo no encontrado' })
-  update(@Param('id') id: string, @Body() updateCustomizationFieldDto: UpdateCustomizationFieldDto) {
-    return this.customizationFieldService.update(id, updateCustomizationFieldDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateCustomizationFieldDto: UpdateCustomizationFieldDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.customizationFieldService.update(id, updateCustomizationFieldDto, Number(organizationId));
   }
 
   @Delete(':id')
@@ -108,8 +126,11 @@ export class CustomizationFieldController {
   @ApiParam({ name: 'id', description: 'ID del campo' })
   @ApiResponse({ status: 204, description: 'Campo eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Campo no encontrado' })
-  remove(@Param('id') id: string) {
-    return this.customizationFieldService.delete(id);
+  remove(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.customizationFieldService.delete(id, Number(organizationId));
   }
 
   @Patch(':id/toggle-active')
@@ -124,8 +145,11 @@ export class CustomizationFieldController {
     type: ToggleActiveResponseDto
   })
   @ApiResponse({ status: 404, description: 'Campo no encontrado' })
-  toggleActive(@Param('id') id: string) {
-    return this.customizationFieldService.toggleActive(id);
+  toggleActive(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.customizationFieldService.toggleActive(id, Number(organizationId));
   }
 
   @Post('reorder')
@@ -133,7 +157,10 @@ export class CustomizationFieldController {
   @ApiOperation({ summary: 'Reordenar campos' })
   @ApiResponse({ status: 204, description: 'Campos reordenados exitosamente' })
   @ApiResponse({ status: 400, description: 'Error en los datos de reordenamiento' })
-  reorder(@Body() reorderCustomizationFieldsDto: ReorderCustomizationFieldsDto) {
-    return this.customizationFieldService.reorder(reorderCustomizationFieldsDto);
+  reorder(
+    @Body() reorderCustomizationFieldsDto: ReorderCustomizationFieldsDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.customizationFieldService.reorder(reorderCustomizationFieldsDto, Number(organizationId));
   }
 }

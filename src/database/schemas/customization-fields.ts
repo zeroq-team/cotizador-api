@@ -1,6 +1,7 @@
 import { pgTable, text, boolean, integer, timestamp, uuid, jsonb, decimal } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { relations } from 'drizzle-orm';
+import { organizations } from './organizations';
 
 /**
  * Customization Fields - Sistema genérico de personalización
@@ -10,6 +11,11 @@ import { relations } from 'drizzle-orm';
  */
 export const customizationFields = pgTable('customization_fields', {
   id: uuid('id').primaryKey().defaultRandom(),
+  
+  // Relación con organización
+  organizationId: integer('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
   
   // Relación con grupo (REQUERIDO)
   groupId: uuid('group_id').notNull(), // Referencia al grupo (todos los campos deben estar en un grupo)
@@ -101,6 +107,10 @@ export const customizationFieldsRelations = relations(customizationFields, ({ on
   group: one(customizationFieldGroups, {
     fields: [customizationFields.groupId],
     references: [customizationFieldGroups.id],
+  }),
+  organization: one(organizations, {
+    fields: [customizationFields.organizationId],
+    references: [organizations.id],
   }),
 }));
 

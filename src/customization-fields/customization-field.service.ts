@@ -10,49 +10,52 @@ export class CustomizationFieldService {
     private readonly customizationFieldRepository: CustomizationFieldRepository,
   ) {}
 
-  async findAll(): Promise<any[]> {
-    return await this.customizationFieldRepository.findAll();
+  async findAll(organizationId: number): Promise<any[]> {
+    return await this.customizationFieldRepository.findAll(organizationId);
   }
 
-  async findAllGrouped(): Promise<any[]> {
-    return await this.customizationFieldRepository.findAllGrouped();
+  async findAllGrouped(organizationId: number): Promise<any[]> {
+    return await this.customizationFieldRepository.findAllGrouped(organizationId);
   }
 
-  async findById(id: string): Promise<any> {
-    const field = await this.customizationFieldRepository.findById(id);
+  async findById(id: string, organizationId: number): Promise<any> {
+    const field = await this.customizationFieldRepository.findById(id, organizationId);
     if (!field) {
       throw new NotFoundException(`Customization field with ID ${id} not found`);
     }
     return field;
   }
 
-  async create(createCustomizationFieldDto: CreateCustomizationFieldDto): Promise<any> {
-    return await this.customizationFieldRepository.create(createCustomizationFieldDto);
+  async create(createCustomizationFieldDto: CreateCustomizationFieldDto, organizationId: number): Promise<any> {
+    return await this.customizationFieldRepository.create({
+      ...createCustomizationFieldDto,
+      organizationId,
+    });
   }
 
-  async update(id: string, updateCustomizationFieldDto: UpdateCustomizationFieldDto): Promise<any> {
-    const field = await this.customizationFieldRepository.findById(id);
+  async update(id: string, updateCustomizationFieldDto: UpdateCustomizationFieldDto, organizationId: number): Promise<any> {
+    const field = await this.customizationFieldRepository.findById(id, organizationId);
     if (!field) {
       throw new NotFoundException(`Customization field with ID ${id} not found`);
     }
 
-    return await this.customizationFieldRepository.update(id, updateCustomizationFieldDto);
+    return await this.customizationFieldRepository.update(id, organizationId, updateCustomizationFieldDto);
   }
 
-  async delete(id: string): Promise<void> {
-    const field = await this.customizationFieldRepository.findById(id);
+  async delete(id: string, organizationId: number): Promise<void> {
+    const field = await this.customizationFieldRepository.findById(id, organizationId);
     if (!field) {
       throw new NotFoundException(`Customization field with ID ${id} not found`);
     }
 
-    await this.customizationFieldRepository.delete(id);
+    await this.customizationFieldRepository.delete(id, organizationId);
   }
 
-  async toggleActive(id: string): Promise<any> {
-    return await this.customizationFieldRepository.toggleActive(id);
+  async toggleActive(id: string, organizationId: number): Promise<any> {
+    return await this.customizationFieldRepository.toggleActive(id, organizationId);
   }
 
-  async reorder(reorderCustomizationFieldsDto: ReorderCustomizationFieldsDto): Promise<void> {
-    await this.customizationFieldRepository.reorder(reorderCustomizationFieldsDto.fieldOrders);
+  async reorder(reorderCustomizationFieldsDto: ReorderCustomizationFieldsDto, organizationId: number): Promise<void> {
+    await this.customizationFieldRepository.reorder(reorderCustomizationFieldsDto.fieldOrders, organizationId);
   }
 }

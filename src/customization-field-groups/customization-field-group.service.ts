@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, and } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { customizationFieldGroups, type CustomizationFieldGroup, type NewCustomizationFieldGroup } from '../database/schemas';
+import { customizationFieldGroups, type CustomizationFieldGroup } from '../database/schemas';
 import { CreateCustomizationFieldGroupDto } from './dto/create-customization-field-group.dto';
 import { UpdateCustomizationFieldGroupDto } from './dto/update-customization-field-group.dto';
 
@@ -9,11 +9,12 @@ import { UpdateCustomizationFieldGroupDto } from './dto/update-customization-fie
 export class CustomizationFieldGroupService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async create(createDto: CreateCustomizationFieldGroupDto): Promise<CustomizationFieldGroup> {
+  async create(createDto: CreateCustomizationFieldGroupDto, organizationId: number): Promise<CustomizationFieldGroup> {
     const result = await this.databaseService.db
       .insert(customizationFieldGroups)
       .values({
         ...createDto,
+        organizationId,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -22,26 +23,37 @@ export class CustomizationFieldGroupService {
     return result[0];
   }
 
-  async findAll(): Promise<CustomizationFieldGroup[]> {
+  async findAll(organizationId: number): Promise<CustomizationFieldGroup[]> {
     return await this.databaseService.db
       .select()
       .from(customizationFieldGroups)
+      .where(eq(customizationFieldGroups.organizationId, organizationId))
       .orderBy(asc(customizationFieldGroups.sortOrder), asc(customizationFieldGroups.createdAt));
   }
 
-  async findAllActive(): Promise<CustomizationFieldGroup[]> {
+  async findAllActive(organizationId: number): Promise<CustomizationFieldGroup[]> {
     return await this.databaseService.db
       .select()
       .from(customizationFieldGroups)
-      .where(eq(customizationFieldGroups.isActive, true))
+      .where(
+        and(
+          eq(customizationFieldGroups.organizationId, organizationId),
+          eq(customizationFieldGroups.isActive, true)
+        )
+      )
       .orderBy(asc(customizationFieldGroups.sortOrder));
   }
 
-  async findOne(id: string): Promise<CustomizationFieldGroup> {
+  async findOne(id: string, organizationId: number): Promise<CustomizationFieldGroup> {
     const result = await this.databaseService.db
       .select()
       .from(customizationFieldGroups)
-      .where(eq(customizationFieldGroups.id, id))
+      .where(
+        and(
+          eq(customizationFieldGroups.id, id),
+          eq(customizationFieldGroups.organizationId, organizationId)
+        )
+      )
       .limit(1);
 
     if (!result[0]) {
@@ -51,8 +63,8 @@ export class CustomizationFieldGroupService {
     return result[0];
   }
 
-  async update(id: string, updateDto: UpdateCustomizationFieldGroupDto): Promise<CustomizationFieldGroup> {
-    await this.findOne(id); // Verifica que existe
+  async update(id: string, updateDto: UpdateCustomizationFieldGroupDto, organizationId: number): Promise<CustomizationFieldGroup> {
+    await this.findOne(id, organizationId); // Verifica que existe y pertenece a la organización
 
     const result = await this.databaseService.db
       .update(customizationFieldGroups)
@@ -60,22 +72,32 @@ export class CustomizationFieldGroupService {
         ...updateDto,
         updatedAt: new Date(),
       })
-      .where(eq(customizationFieldGroups.id, id))
+      .where(
+        and(
+          eq(customizationFieldGroups.id, id),
+          eq(customizationFieldGroups.organizationId, organizationId)
+        )
+      )
       .returning();
 
     return result[0];
   }
 
-  async remove(id: string): Promise<void> {
-    await this.findOne(id); // Verifica que existe
+  async remove(id: string, organizationId: number): Promise<void> {
+    await this.findOne(id, organizationId); // Verifica que existe y pertenece a la organización
 
     await this.databaseService.db
       .delete(customizationFieldGroups)
-      .where(eq(customizationFieldGroups.id, id));
+      .where(
+        and(
+          eq(customizationFieldGroups.id, id),
+          eq(customizationFieldGroups.organizationId, organizationId)
+        )
+      );
   }
 
-  async toggleActive(id: string): Promise<CustomizationFieldGroup> {
-    const group = await this.findOne(id);
+  async toggleActive(id: string, organizationId: number): Promise<CustomizationFieldGroup> {
+    const group = await this.findOne(id, organizationId);
 
     const result = await this.databaseService.db
       .update(customizationFieldGroups)
@@ -83,10 +105,14 @@ export class CustomizationFieldGroupService {
         isActive: !group.isActive,
         updatedAt: new Date(),
       })
-      .where(eq(customizationFieldGroups.id, id))
+      .where(
+        and(
+          eq(customizationFieldGroups.id, id),
+          eq(customizationFieldGroups.organizationId, organizationId)
+        )
+      )
       .returning();
 
     return result[0];
   }
 }
-

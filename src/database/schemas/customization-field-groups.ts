@@ -2,6 +2,7 @@ import { pgTable, text, boolean, integer, timestamp, uuid } from 'drizzle-orm/pg
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { relations } from 'drizzle-orm';
 import { customizationFields } from './customization-fields';
+import { organizations } from './organizations';
 
 /**
  * Customization Field Groups - Agrupación de campos de personalización
@@ -11,6 +12,9 @@ import { customizationFields } from './customization-fields';
  */
 export const customizationFieldGroups = pgTable('customization_field_groups', {
   id: uuid('id').primaryKey().defaultRandom(),
+  
+  // Organización
+  organizationId: integer('organization_id').notNull().references(() => organizations.id),
   
   // Información del grupo
   name: text('name').notNull(), // Nombre del grupo (ej: "Información de Logo")
@@ -26,8 +30,12 @@ export const customizationFieldGroups = pgTable('customization_field_groups', {
 });
 
 // Relaciones
-export const customizationFieldGroupsRelations = relations(customizationFieldGroups, ({ many }) => ({
+export const customizationFieldGroupsRelations = relations(customizationFieldGroups, ({ many, one }) => ({
   fields: many(customizationFields),
+  organization: one(organizations, {
+    fields: [customizationFieldGroups.organizationId],
+    references: [organizations.id],
+  }),
 }));
 
 // Zod schemas para validación
