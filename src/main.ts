@@ -3,16 +3,28 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
-  // Validar variables de entorno críticas
-  if (!process.env.TRIGGER_SECRET_KEY) {
-    throw new Error(
-      '❌ ERROR CRÍTICO: La variable de entorno TRIGGER_SECRET_KEY es requerida.\n' +
-      '   Por favor, configura esta variable en tu archivo .env antes de iniciar la aplicación.\n' +
-      '   Ejemplo: TRIGGER_SECRET_KEY=tu_secret_key_aqui'
-    );
-  }
+// Validar variables de entorno críticas ANTES de inicializar la aplicación
+if (!process.env.TRIGGER_SECRET_KEY) {
+  console.error('\n');
+  console.error('═'.repeat(80));
+  console.error('❌ ERROR CRÍTICO: Variable de entorno faltante');
+  console.error('═'.repeat(80));
+  console.error('\n');
+  console.error('  La variable de entorno TRIGGER_SECRET_KEY es REQUERIDA.');
+  console.error('  Por favor, configura esta variable en tu archivo .env');
+  console.error('\n');
+  console.error('  Ejemplo:');
+  console.error('  TRIGGER_SECRET_KEY=tr_dev_xxxxxxxxxxxxxxxx');
+  console.error('\n');
+  console.error('  Puedes obtener tu secret key desde:');
+  console.error('  https://trigger.dev -> Project Settings -> API Keys');
+  console.error('\n');
+  console.error('═'.repeat(80));
+  console.error('\n');
+  process.exit(1);
+}
 
+async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable global validation pipe with transform
