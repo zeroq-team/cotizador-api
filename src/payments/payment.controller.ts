@@ -67,6 +67,14 @@ export class PaymentController {
     return await this.paymentService.findAllPaginated(filters);
   }
 
+  @Get('cart/:cartId/pending')
+  @ApiOperation({ summary: 'Check if cart has a pending payment' })
+  @ApiParam({ name: 'cartId', description: 'Cart ID' })
+  @ApiResponse({ status: 200, description: 'Returns pending payment or null' })
+  async findPendingByCartId(@Param('cartId') cartId: string) {
+    return await this.paymentService.findPendingByCartId(cartId);
+  }
+
   @Get('cart/:cartId')
   @ApiOperation({ summary: 'Get payments by cart ID' })
   @ApiParam({ name: 'cartId', description: 'Cart ID' })

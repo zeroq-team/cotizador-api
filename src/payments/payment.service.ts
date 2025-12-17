@@ -72,6 +72,28 @@ export class PaymentService {
     return await this.paymentRepository.findByCartId(cartId);
   }
 
+  /**
+   * Busca un pago pendiente para un carrito específico
+   * Retorna el pago si existe uno en estado 'pending', null si no existe
+   */
+  async findPendingPaymentByCartId(cartId: string): Promise<Payment | null> {
+    const payments = await this.paymentRepository.findByCartId(cartId);
+
+    // Buscar el primer pago en estado 'pending'
+    const pendingPayment = payments.find(
+      (payment) => payment.status === 'pending',
+    );
+
+    return pendingPayment || null;
+  }
+
+  /**
+   * Alias para findPendingPaymentByCartId (para compatibilidad con el controller)
+   */
+  async findPendingByCartId(cartId: string): Promise<Payment | null> {
+    return this.findPendingPaymentByCartId(cartId);
+  }
+
   async findByTransactionId(transactionId: string): Promise<Payment | null> {
     const payment =
       await this.paymentRepository.findByTransactionId(transactionId);
@@ -237,8 +259,6 @@ export class PaymentService {
   async getPaymentStats(cartId: string) {
     return await this.paymentRepository.getPaymentStats(cartId);
   }
-
-
 
   /**
    * Create a proof-based payment (check or transfer)

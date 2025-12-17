@@ -170,6 +170,21 @@ export class WebpayService {
         `WebPay config - Prefix: ${webPayPrefix}, Child Commerce: ${childCommerceCode}`,
       );
 
+      // PASO 1.5: Verificar si ya existe un pago pendiente para este carrito
+      this.logger.log(`Verificando si existe un pago pendiente para cart ${cartId}...`);
+      const existingPendingPayment = await this.paymentService.findPendingPaymentByCartId(cartId);
+      
+      if (existingPendingPayment) {
+        this.logger.warn(
+          `❌ Ya existe un pago pendiente para el cart ${cartId}. Payment ID: ${existingPendingPayment.id}, Status: ${existingPendingPayment.status}`,
+        );
+        throw new BadRequestException(
+          'Ya existe un pago en proceso para este carrito. Por favor, espera a que se complete o expire antes de intentar nuevamente.',
+        );
+      }
+      
+      this.logger.log('✅ No hay pagos pendientes, procediendo a crear transacción...');
+
       // PASO 2: Generar identificadores únicos
       const { buyOrder, sessionId, childBuyOrder } =
         this.generateTransactionIdentifiers(cartId, webPayPrefix);
