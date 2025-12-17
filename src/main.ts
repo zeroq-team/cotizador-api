@@ -95,4 +95,14 @@ async function bootstrap() {
   });
   await app.listen(process.env.PORT ?? 3002);
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('\n');
+  console.error('═'.repeat(80));
+  console.error('❌ ERROR AL INICIAR LA APLICACIÓN');
+  console.error('═'.repeat(80));
+  console.error('\n', error.message, '\n');
+  console.error('═'.repeat(80));
+  console.error('\n');
+  process.exit(1);
+});
