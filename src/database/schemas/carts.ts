@@ -2,32 +2,15 @@ import { pgTable, uuid, integer, decimal, timestamp, text, varchar, jsonb, boole
 import { relations } from 'drizzle-orm'
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 import { products } from './products'
+import { organizations } from './organizations'
 
-// Cart Items Table (separate table for relational integrity)
-export const cartItems = pgTable('cart_items', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  cartId: uuid('cart_id').notNull(),
-  productId: bigint('product_id', { mode: 'number' })
-    .notNull()
-    .references(() => products.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  sku: varchar('sku', { length: 100 }).notNull(),
-  size: varchar('size', { length: 50 }),
-  color: varchar('color', { length: 50 }),
-  description: text('description'),
-  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
-  quantity: integer('quantity').notNull().default(1),
-  imageUrl: text('image_url'),
-  customizationValues: jsonb('customization_values'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
-
-// Carts Table (simplified without JSON field)
+// Carts Table
 export const carts = pgTable('carts', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversationId: varchar('conversation_id', { length: 255 }).notNull(),
-  organizationId: integer('organization_id'),
+  organizationId: bigint('organization_id', { mode: 'number' })
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
   totalItems: integer('total_items').notNull().default(0),
   totalPrice: decimal('total_price', { precision: 10, scale: 2 })
     .notNull()
@@ -52,8 +35,34 @@ export const carts = pgTable('carts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+// Cart Items Table (separate table for relational integrity)
+export const cartItems = pgTable('cart_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  cartId: uuid('cart_id')
+    .notNull()
+    .references(() => carts.id, { onDelete: 'cascade' }),
+  productId: bigint('product_id', { mode: 'number' })
+    .notNull()
+    .references(() => products.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  sku: varchar('sku', { length: 100 }).notNull(),
+  size: varchar('size', { length: 50 }),
+  color: varchar('color', { length: 50 }),
+  description: text('description'),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  quantity: integer('quantity').notNull().default(1),
+  imageUrl: text('image_url'),
+  customizationValues: jsonb('customization_values'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 // Define relations
-export const cartsRelations = relations(carts, ({ many }) => ({
+export const cartsRelations = relations(carts, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [carts.organizationId],
+    references: [organizations.id],
+  }),
   items: many(cartItems),
 }))
 
