@@ -1,12 +1,15 @@
-import { pgTable, uuid, integer, decimal, timestamp, text, varchar, jsonb, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, integer, decimal, timestamp, text, varchar, jsonb, boolean, bigint } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
+import { products } from './products'
 
 // Cart Items Table (separate table for relational integrity)
 export const cartItems = pgTable('cart_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   cartId: uuid('cart_id').notNull(),
-  productId: integer('product_id').notNull(),
+  productId: bigint('product_id', { mode: 'number' })
+    .notNull()
+    .references(() => products.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   sku: varchar('sku', { length: 100 }).notNull(),
   size: varchar('size', { length: 50 }),
@@ -16,7 +19,6 @@ export const cartItems = pgTable('cart_items', {
   quantity: integer('quantity').notNull().default(1),
   imageUrl: text('image_url'),
   customizationValues: jsonb('customization_values'),
-  // metadata: jsonb('metadata').$type<Record<string, any>>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -25,6 +27,7 @@ export const cartItems = pgTable('cart_items', {
 export const carts = pgTable('carts', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversationId: varchar('conversation_id', { length: 255 }).notNull(),
+  organizationId: integer('organization_id'),
   totalItems: integer('total_items').notNull().default(0),
   totalPrice: decimal('total_price', { precision: 10, scale: 2 })
     .notNull()
@@ -58,6 +61,10 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   cart: one(carts, {
     fields: [cartItems.cartId],
     references: [carts.id],
+  }),
+  product: one(products, {
+    fields: [cartItems.productId],
+    references: [products.id],
   }),
 }))
 

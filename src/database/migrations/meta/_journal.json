@@ -110,8 +110,15 @@
     {
       "idx": 15,
       "version": "7",
-      "when": 1765982750525,
-      "tag": "0015_big_grim_reaper",
+      "when": 1765983781799,
+      "tag": "0015_common_abomination",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1765985464713,
+      "tag": "0016_workable_vermin",
       "breakpoints": true
     }
   ]

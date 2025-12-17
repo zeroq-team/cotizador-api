@@ -55,13 +55,12 @@ export class CreateCartDto {
   @IsString()
   documentNumber?: string
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'ID de la organización',
     example: '1',
     type: String,
   })
-  @IsOptional()
   @IsString()
-  organizationId?: string
+  organizationId: string
 }
 

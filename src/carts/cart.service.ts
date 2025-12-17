@@ -56,6 +56,7 @@ export class CartService {
     // Create new cart with conversation_id and customer info
     const newCart = await this.cartRepository.create({
       conversationId,
+      organizationId: parseInt(organizationId),
       totalItems: 0,
       totalPrice: '0',
       fullName,
@@ -143,18 +144,6 @@ export class CartService {
 
     // Si hay organizationId, calcular información de lista de precios aplicada
     if (organizationId && cart.items && cart.items.length > 0) {
-      // const pricingInfo = await this.calculateCartPricingInfo(
-      //   cart,
-      //   organizationId,
-      // );
-
-      // Actualizar precios de los items con la lista de precios aplicada
-      // const updatedItems = await this.updateCartItemsPrices(
-      //   cart.items,
-      //   pricingInfo.appliedPriceList,
-      //   organizationId,
-      // );
-
       return { ...cart, items: cart.items };
     }
 
@@ -182,18 +171,6 @@ export class CartService {
 
     // Si hay organizationId, calcular información de lista de precios aplicada
     if (organizationId && cart.items && cart.items.length > 0) {
-      // const pricingInfo = await this.calculateCartPricingInfo(
-      //   cart,
-      //   organizationId,
-      // );
-
-      // Actualizar precios de los items con la lista de precios aplicada
-      // const updatedItems = await this.updateCartItemsPrices(
-      //   cart.items,
-      //   pricingInfo.appliedPriceList,
-      //   organizationId,
-      // );
-
       return { ...cart, items: cart.items };
     }
 

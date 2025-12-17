@@ -501,6 +501,26 @@ export class ProductsService {
   }
 
   /**
+   * Convierte valores vacíos a null (para campos numéricos)
+   */
+  private toNullIfEmpty<T>(value: T | null | undefined | ''): T | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    return value;
+  }
+
+  /**
+   * Convierte valores vacíos a null para números (asegura tipo correcto)
+   */
+  private toNullableNumber(value: any): number | null {
+    if (value === null || value === undefined || value === '' || isNaN(Number(value))) {
+      return null;
+    }
+    return Number(value);
+  }
+
+  /**
    * POST request - Crear producto
    */
   async post<T = any>(
@@ -513,20 +533,20 @@ export class ProductsService {
       const newProduct = await this.productRepository.create({
         organizationId: orgId,
         sku: data.sku,
-        externalSku: data.externalSku || null,
-        externalName: data.externalName || null,
+        externalSku: this.toNullIfEmpty(data.externalSku),
+        externalName: this.toNullIfEmpty(data.externalName),
         name: data.name,
-        description: data.description || null,
+        description: this.toNullIfEmpty(data.description),
         productType: data.productType || 'simple',
         status: data.status || 'active',
-        unitOfMeasure: data.unitOfMeasure || null,
-        brand: data.brand || null,
-        model: data.model || null,
-        taxClassId: data.taxClassId || null,
-        weight: data.weight || null,
-        height: data.height || null,
-        width: data.width || null,
-        length: data.length || null,
+        unitOfMeasure: this.toNullIfEmpty(data.unitOfMeasure),
+        brand: this.toNullIfEmpty(data.brand),
+        model: this.toNullIfEmpty(data.model),
+        taxClassId: this.toNullableNumber(data.taxClassId),
+        weight: this.toNullIfEmpty(data.weight),
+        height: this.toNullIfEmpty(data.height),
+        width: this.toNullIfEmpty(data.width),
+        length: this.toNullIfEmpty(data.length),
         metadata: data.metadata || null,
       });
       return this.mapToProductType(newProduct) as T;
