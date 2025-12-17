@@ -373,7 +373,7 @@ export class ProductsService {
     const inventoryMap: Map<number, any[]> = new Map();
     const includeInventory = params?.include?.includes('inventory');
     if (includeInventory) {
-      const allInventory = await this.inventoryService.getInventoryByProductIds(productIds);
+      const allInventory = await this.inventoryService.getInventoryByProductIds(productIds, orgId);
 
       allInventory.forEach((inv) => {
         const inventoryArray = inventoryMap.get(inv.productId) || [];

@@ -14,10 +14,16 @@ import {
 } from './dto/webpay-transaction-response.dto';
 import { PaymentService } from '../payment.service';
 import { OrganizationPaymentMethodRepository } from '../../organization/organization-payment-method.repository';
+import { webpayTimeoutTask } from '../../trigger/webpay-timeout';
+import { runs } from '@trigger.dev/sdk/v3';
+import { PaymentStatus } from '../../database/schemas';
 
 // Importar SDK de Transbank
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { WebpayPlus, TransactionDetail } = require('transbank-sdk');
+
+// Tiempo de timeout para transacciones WebPay (3 minutos)
+const WEBPAY_TIMEOUT_MINUTES = 3;
 
 @Injectable()
 export class WebpayService {
@@ -70,7 +76,10 @@ export class WebpayService {
 
   /**
    * Genera identificadores únicos para la transacción
-   * Formato: prefix-cartIdSuffix (máximo 26 caracteres para Transbank)
+   * Formato: prefix-timestamp-cartIdSuffix (máximo 26 caracteres para Transbank)
+   * 
+   * El timestamp asegura que cada intento de pago genere un identificador único,
+   * incluso si es para el mismo carrito.
    */
   private generateTransactionIdentifiers(
     cartId: string,
@@ -80,21 +89,26 @@ export class WebpayService {
     sessionId: string;
     childBuyOrder: string;
   } {
+    // Generar timestamp corto (últimos 7 dígitos de timestamp en base36)
+    // Esto nos da ~78 millones de combinaciones únicas
+    const timestamp = Date.now().toString(36).slice(-7);
+
     // Remover guiones del UUID
     const cartIdClean = cartId.replace(/-/g, '');
 
     // Calcular cuántos caracteres del UUID podemos usar
-    // Total: prefix + guion (1) + suffix = 26 caracteres máximo
-    const maxUuidChars = 26 - prefix.length - 1;
+    // Total: prefix + guion (1) + timestamp (7) + guion (1) + suffix = 26 caracteres máximo
+    const maxUuidChars = 26 - prefix.length - 1 - timestamp.length - 1;
 
     if (maxUuidChars < 1) {
       throw new BadRequestException(
-        `El prefix "${prefix}" es muy largo. Máximo 9 caracteres.`,
+        `El prefix "${prefix}" es muy largo. Máximo 9 caracteres para permitir timestamp y sufijo.`,
       );
     }
 
+    // Tomar los últimos caracteres del UUID
     const cartIdSuffix = cartIdClean.slice(-maxUuidChars);
-    const identifier = `${prefix}-${cartIdSuffix}`;
+    const identifier = `${prefix}-${timestamp}-${cartIdSuffix}`;
 
     // Validar longitud
     if (identifier.length > 26) {
@@ -208,6 +222,54 @@ export class WebpayService {
       this.logger.log('Transacción WebPay creada exitosamente');
       this.logger.debug(`Token: ${response.token}`);
 
+      // PASO 6: Programar tarea de timeout en Trigger.dev (3 minutos)
+      try {
+        const timeoutDate = new Date(
+          Date.now() + WEBPAY_TIMEOUT_MINUTES * 60 * 1000,
+        );
+
+        const timeoutTask = await webpayTimeoutTask.trigger(
+          {
+            paymentId: payment.id,
+            buyOrder,
+            cartId,
+          },
+          {
+            delay: timeoutDate,
+          },
+        );
+
+        this.logger.log(
+          `Tarea de timeout programada: ${timeoutTask.id} para ${timeoutDate.toISOString()}`,
+        );
+
+        // Actualizar el pago con el task_id para poder cancelarlo después
+        const existingPaymentMetadata =
+          typeof payment.metadata === 'object' && payment.metadata !== null
+            ? (payment.metadata as Record<string, unknown>)
+            : {};
+
+        await this.paymentService.update(payment.id, {
+          metadata: {
+            ...existingPaymentMetadata,
+            webpay_init: {
+              buyOrder,
+              sessionId,
+              organizationId,
+              timestamp: new Date().toISOString(),
+            },
+            timeout_task_id: timeoutTask.id,
+            timeout_scheduled_for: timeoutDate.toISOString(),
+          },
+        });
+      } catch (taskError) {
+        // Si falla la creación de la tarea de timeout, solo logueamos
+        // No queremos que falle la transacción por esto
+        this.logger.warn(
+          `No se pudo programar la tarea de timeout: ${taskError.message}`,
+        );
+      }
+
       return {
         token: response.token,
         url: response.url,
@@ -219,7 +281,11 @@ export class WebpayService {
     } catch (error) {
       this.logger.error('Error al crear transacción WebPay:', error);
 
-      if (error instanceof BadRequestException) {
+      // Si es una excepción HTTP de NestJS, dejarla pasar sin modificar
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
 
@@ -263,6 +329,55 @@ export class WebpayService {
           `No se encontró pago con buy_order: ${buyOrder}. La transacción fue exitosa pero no se actualizará el pago.`,
         );
       } else {
+        // PASO 2.5: Cancelar la tarea de timeout INMEDIATAMENTE cuando el usuario regresa
+        // Esto debe hacerse ANTES de cualquier validación para evitar que se ejecute el timeout
+        const existingMetadata =
+          typeof payment.metadata === 'object' && payment.metadata !== null
+            ? payment.metadata
+            : {};
+        
+        const timeoutTaskId = (existingMetadata as Record<string, unknown>)
+          ?.timeout_task_id as string | undefined;
+        
+        if (timeoutTaskId) {
+          try {
+            await runs.cancel(timeoutTaskId);
+            this.logger.log(
+              `✅ Tarea de timeout ${timeoutTaskId} cancelada exitosamente (usuario regresó de WebPay)`,
+            );
+          } catch (cancelError) {
+            // Si falla la cancelación, solo logueamos (puede que ya haya expirado o ejecutado)
+            this.logger.warn(
+              `⚠️ No se pudo cancelar la tarea de timeout ${timeoutTaskId}:`,
+              cancelError instanceof Error ? cancelError.message : 'Error desconocido',
+            );
+          }
+        } else {
+          this.logger.warn('No se encontró timeout_task_id en los metadatos del pago');
+        }
+
+        // Validar que el pago esté en un estado que permita confirmación
+        const finalStates: PaymentStatus[] = ['completed', 'cancelled', 'refunded', 'failed'];
+        if (finalStates.includes(payment.status)) {
+          this.logger.warn(
+            `El pago ${payment.id} ya está en estado final: ${payment.status}. No se puede actualizar.`,
+          );
+          
+          // Mensajes específicos según el estado
+          let errorMessage: string;
+          if (payment.status === 'failed') {
+            errorMessage = 'La transacción ha expirado. El tiempo límite de 3 minutos para completar el pago fue excedido. Por favor, inicia un nuevo proceso de pago.';
+          } else if (payment.status === 'completed') {
+            errorMessage = 'Este pago ya fue procesado y completado exitosamente. No se puede procesar nuevamente.';
+          } else if (payment.status === 'cancelled') {
+            errorMessage = 'Este pago fue cancelado y no puede ser procesado. Por favor, inicia un nuevo proceso de pago.';
+          } else {
+            errorMessage = `El pago ya fue procesado y está en estado: ${payment.status}. No se puede confirmar una transacción finalizada.`;
+          }
+          
+          throw new BadRequestException(errorMessage);
+        }
+
         // PASO 3: Actualizar el pago con los datos de Transbank
         const isAuthorized = mainDetail.status === 'AUTHORIZED';
         const newStatus = isAuthorized ? 'completed' : 'failed';
@@ -271,11 +386,7 @@ export class WebpayService {
           `Actualizando pago ${payment.id} a status: ${newStatus}`,
         );
 
-        const existingMetadata =
-          typeof payment.metadata === 'object' && payment.metadata !== null
-            ? payment.metadata
-            : {};
-
+        // Reutilizar existingMetadata que ya se obtuvo al inicio
         await this.paymentService.update(payment.id, {
           status: newStatus,
           authorizationCode: mainDetail.authorization_code,
@@ -297,6 +408,8 @@ export class WebpayService {
         });
 
         this.logger.log(`Pago ${payment.id} actualizado exitosamente`);
+        
+        // La tarea de timeout ya fue cancelada al principio del método
       }
 
       // PASO 4: Retornar respuesta
@@ -322,6 +435,14 @@ export class WebpayService {
       };
     } catch (error) {
       this.logger.error('Error al confirmar transacción:', error);
+
+      // Si es una excepción HTTP de NestJS, dejarla pasar sin modificar
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
 
       throw new InternalServerErrorException(
         'Error al confirmar la transacción',

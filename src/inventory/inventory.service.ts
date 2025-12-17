@@ -152,9 +152,10 @@ export class InventoryService {
     };
   }
 
-  async getInventoryByProductIds(productIds: number[]): Promise<any[]> {
+  async getInventoryByProductIds(productIds: number[], organizationId: number): Promise<any[]> {
     const inventoryLevels = await this.inventoryLevelRepository.findMany({
       productIds: productIds,
+      organizationId: organizationId,
     });
 
     return inventoryLevels;
