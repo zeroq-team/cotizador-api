@@ -86,6 +86,17 @@ DATABASE_URL=postgresql://username:password@localhost:5432/cotizador_db
 PORT=3000
 NODE_ENV=development
 
+# Trigger.dev Configuration (REQUERIDO)
+# Esta variable es OBLIGATORIA para que la aplicación inicie
+# Obtenla desde: https://trigger.dev -> Project Settings -> API Keys
+TRIGGER_SECRET_KEY=your_trigger_secret_key_here
+
+# WebPay Configuration
+WEBPAY_COMMERCE_CODE=597055555532
+WEBPAY_API_KEY=579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
+WEBPAY_ENVIRONMENT=integration
+WEBPAY_RETURN_BASE_URL=http://localhost:3003
+
 # External Services (opcional)
 PRODUCTS_API_URL=https://api.products.example.com
 INVENTORY_API_URL=https://api.inventory.example.com
@@ -93,6 +104,8 @@ INVENTORY_API_URL=https://api.inventory.example.com
 # WebSocket Configuration
 WS_PORT=3001
 ```
+
+> ⚠️ **Importante**: La variable `TRIGGER_SECRET_KEY` es obligatoria. La aplicación no se iniciará si no está configurada.
 
 ### Configuración de PostgreSQL
 
@@ -506,6 +519,11 @@ Asegúrate de configurar:
 - `DATABASE_URL`: URL de conexión a PostgreSQL
 - `NODE_ENV=production`
 - `PORT`: Puerto de la aplicación
+- `TRIGGER_SECRET_KEY`: ⚠️ **OBLIGATORIO** - Secret key de Trigger.dev
+- `WEBPAY_COMMERCE_CODE`: Código de comercio de WebPay
+- `WEBPAY_API_KEY`: API Key de WebPay
+- `WEBPAY_ENVIRONMENT`: Entorno de WebPay (integration/production)
+- `WEBPAY_RETURN_BASE_URL`: URL base para el retorno de WebPay
 - Otras variables según servicios externos
 
 ## 🤝 Contribución

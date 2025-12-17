@@ -4,6 +4,15 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  // Validar variables de entorno críticas
+  if (!process.env.TRIGGER_SECRET_KEY) {
+    throw new Error(
+      '❌ ERROR CRÍTICO: La variable de entorno TRIGGER_SECRET_KEY es requerida.\n' +
+      '   Por favor, configura esta variable en tu archivo .env antes de iniciar la aplicación.\n' +
+      '   Ejemplo: TRIGGER_SECRET_KEY=tu_secret_key_aqui'
+    );
+  }
+
   const app = await NestFactory.create(AppModule);
 
   // Enable global validation pipe with transform
