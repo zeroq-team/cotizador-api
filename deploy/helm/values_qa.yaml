@@ -58,13 +58,17 @@ resources:
 # nameOverride: ""
 
 # External secrets configuration
-# externalSecrets:
-#   secretManager:
-#     enabled: false
-#     list:
-#       # Pre-configured MongoDB secrets - uncomment to use
-#       # - name: qa-shared-mongodb-eks-user
-#       #   refreshInterval: 24h
+externalSecrets:
+  secretManager:
+    enabled: true
+    list:
+      # Pre-configured MongoDB secrets - uncomment to use
+      - name: qa-shared-eks-quotation-api-cronjob-apikey
+        refreshInterval: 24h
+      - name: qa-shared-eks-quotation-api-webpay-credentials
+        refreshInterval: 24h
+      - name: qa-shared-eks-quotation-api-aws-access
+        refreshInterval: 24h
 #       
 #   parameterStore:
 #     enabled: false
@@ -115,9 +119,15 @@ resources:
     - name: AWS_REGION
       value: us-east-2
     - name: AWS_ACCESS_KEY_ID
-      value: example
+      valueFrom: 
+        secretKeyRef:
+          name: qa-shared-eks-quotation-api-aws-access
+          key: AWS_ACCESS_KEY_ID
     - name: AWS_SECRET_ACCESS_KEY
-      value: example
+      valueFrom:
+        secretKeyRef:
+          name: qa-shared-eks-quotation-api-aws-access
+          key: AWS_SECRET_ACCESS_KEY
     - name: AWS_S3_BUCKET_NAME
       value: dev-dynamic-quote-us-east-2-181276599638
 
@@ -137,13 +147,19 @@ resources:
     - name: WEBPAY_COMMERCE_CODE
       value: 597055555535
     - name: WEBPAY_API_KEY
-      value: example
+      valueFrom:
+        secretKeyRef:
+          name: qa-shared-eks-quotation-api-webpay-credentials
+          key: WEBPAY_API_KEY
     - name: WEBPAY_RETURN_BASE_URL
       value: https://cotizador-ia-env-qa-zero-q.vercel.app
 
     ## trigger.dev
     - name: TRIGGER_SECRET_KEY
-      value: example
+      valueFrom:
+        secretKeyRef:
+          name: qa-shared-eks-quotation-api-cronjob-apikey
+          key: TRIGGER_SECRET_KEY
     
 # Extra labels and annotations
 # extraLabels: {}
