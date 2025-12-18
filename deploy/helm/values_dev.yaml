@@ -1,0 +1,199 @@
+# ==============================================================================
+# DEV ENVIRONMENT CONFIGURATION
+# ==============================================================================
+
+# ==============================================================================
+# MINIMAL CONFIGURATION - ENABLED BY DEFAULT
+# ==============================================================================
+
+# Master switch - controls if the entire application is deployed
+enabled: true
+
+# Number of replicas for development
+replicaCount: 1
+
+# Image configuration (managed by CI/CD pipeline)
+image:
+  repository: 181276599638.dkr.ecr.us-east-2.amazonaws.com/quotation-api  # 🔄 CHANGE THIS: Update with your service name. the Tag is overridden by CI: dev-${COMMIT_SHA}
+  pullPolicy: Always
+
+# Service configuration - enabled for exposed applications (web, api, etc)
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 8080  # 🔄 CHANGE THIS: Update with your application port
+
+# Ingress configuration - enables external access (web, api, etc)
+ingressRoute:
+  enabled: true
+  host: dev.zeroq.cl
+  paths:
+    - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
+
+# Basic resource limits for development
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+# ==============================================================================
+# OPTIONAL CONFIGURATION - COMMENTED BY DEFAULT
+# ==============================================================================
+
+# Optional: Override project name (defaults to CI_PROJECT_NAME from GitLab)
+# projectName: ""
+
+# Optional: Complete override of resource names (highest priority)
+# Use this to have full control over Kubernetes resource names
+# fullnameOverride: ""
+
+# Optional: Override chart name portion only (rarely needed)
+# nameOverride: ""
+
+# External secrets configuration
+# externalSecrets:
+#   secretManager:
+#     enabled: false
+#     list:
+#       # Pre-configured MongoDB secrets - uncomment to use
+#       # - name: dev-shared-mongodb-eks-user
+#       #   refreshInterval: 24h
+#       
+#   parameterStore:
+#     enabled: false
+#     list: []
+
+# Environment variables for your application
+# env: []
+#   # Example: Simple environment variables
+#   # - name: NODE_ENV
+#   #   value: "development"
+#   # - name: LOG_LEVEL
+#   #   value: "debug"
+#   # 
+#   # Example: MongoDB secrets (after enabling external secrets above)
+#   # IMPORTANT: Secret names are auto-generated from AWS paths by replacing '/' with '-'
+#   # AWS Secret: "dev-shared-mongodb-eks-user" → K8s Secret: "dev-shared-mongodb-eks-user-sm-secret"
+#   # 
+#   # - name: MONGO_HOST
+#   #   valueFrom:
+#   #     secretKeyRef:
+#   #       name: dev-shared-mongodb-eks-user-sm-secret  # Auto-generated from "dev-shared-mongodb-eks-user"
+#   #       key: host
+#   # - name: MONGO_PASSWORD
+#   #   valueFrom:
+#   #     secretKeyRef:
+#   #       name: dev-shared-mongodb-eks-user-sm-secret  # Same secret, different key
+#   #       key: password
+
+
+# Extra labels and annotations
+# extraLabels: {}
+# annotation: {}
+
+# Enable automatic OpenTelemetry instrumentation for Node.js
+# autoinstrumentation: false
+
+# Security contexts
+# podSecurityContext: {}
+#   # Example:
+#   # fsGroup: 2000
+#   # runAsNonRoot: true
+#   # runAsUser: 1000
+#   
+# securityContext: {}
+#   # Example:
+#   # allowPrivilegeEscalation: false
+#   # capabilities:
+#   #   drop:
+#   #   - ALL
+#   # readOnlyRootFilesystem: true
+#   # runAsNonRoot: true
+#   # runAsUser: 1000
+
+# Image pull secrets
+# imagePullSecrets: []
+
+# Node scheduling
+# nodeSelector: {}
+# tolerations: []
+# affinity: {}
+
+# Pod distribution across zones/nodes (for high availability)
+# topologySpreadConstraints: []
+#   # Example - Spread pods across availability zones:
+#   # - maxSkew: 1
+#   #   topologyKey: topology.kubernetes.io/zone
+#   #   whenUnsatisfiable: DoNotSchedule
+#   #   labelSelector:
+#   #     matchLabels:
+#   #       app: my-app
+
+# Health checks
+# livenessProbe: {}
+#   # Example:
+#   # httpGet:
+#   #   path: /health
+#   #   port: 3000
+#   # initialDelaySeconds: 30
+#   # periodSeconds: 10
+#   
+# readinessProbe: {}
+#   # Example:
+#   # httpGet:
+#   #   path: /ready
+#   #   port: 3000
+#   # initialDelaySeconds: 5
+#   # periodSeconds: 5
+
+# Additional service configuration
+# service:
+#   type: ClusterIP
+#   port: 80
+#   targetPort: 3000
+#   headless: false
+
+# Additional ingress configuration
+# ingressRoute:
+#   tls: {}
+#   middlewares: {}
+
+# ========= OBSERVABILITY & MONITORING =========
+# observability:
+#   # OpenTelemetry auto-instrumentation
+#   opentelemetry:
+#     enabled: true
+#     inject:
+#       # Enable Node.js auto-instrumentation for production
+#       nodejs:
+#         enabled: true
+#         instrumentation: "grafana-tempo/node-instrumentation"
+#       python:
+#         enabled: false
+#       java:
+#         enabled: false
+#       dotnet:
+#         enabled: false
+  
+#   # Prometheus metrics collection
+#   metrics:
+#     enabled: true
+#     port: 9090
+#     path: "/metrics"
+#     annotations: true
+#     # Service labels for ServiceMonitor discovery
+#     serviceLabels:
+#       app.prometheus.metrics.custom: "true"
+      
+# ========= MIGRATION NOTES =========
+# If migrating from old values structure, note:
+# - Structure completely flattened - no more global/zeroq sections
+# - All configuration moved to root level 
+# - External secrets simplified to root-level configuration
+# - Single workload type - no more api/consumer separation
+# - Company labels requirement removed
+# See chart documentation for current structure

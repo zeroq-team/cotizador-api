@@ -1,0 +1,265 @@
+# ZeroQ Chart Values - QA Environment
+# This file configures your application for the QA/staging environment
+
+# ==============================================================================
+# QA ENVIRONMENT CONFIGURATION
+# ==============================================================================
+
+# ==============================================================================
+# MINIMAL CONFIGURATION - ENABLED BY DEFAULT
+# ==============================================================================
+
+# Master switch - controls if the entire application is deployed
+enabled: true
+
+# Number of replicas for QA testing
+replicaCount: 2
+
+# Image configuration (managed by CI/CD pipeline)
+image:
+  repository: 181276599638.dkr.ecr.us-east-2.amazonaws.com/quotation-api  # 🔄 CHANGE THIS: Update with your service name. the Tag is overridden by CI: qa-${COMMIT_SHA}
+  pullPolicy: Always
+
+# Service configuration - enabled for exposed applications (web, api, etc)
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 3000  # 🔄 CHANGE THIS: Update with your application port
+
+# Ingress configuration - enables external access (web, api, etc)
+ingressRoute:
+  enabled: true
+  host: qa.zeroq.cl
+  paths:
+    - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
+
+# Resource limits for QA (production-like)
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# ==============================================================================
+# OPTIONAL CONFIGURATION - COMMENTED BY DEFAULT
+# ==============================================================================
+
+# Optional: Override project name (defaults to CI_PROJECT_NAME from GitLab)
+# projectName: ""
+
+# Optional: Complete override of resource names (highest priority)
+# Use this to have full control over Kubernetes resource names
+# fullnameOverride: ""
+
+# Optional: Override chart name portion only (rarely needed)
+# nameOverride: ""
+
+# External secrets configuration
+# externalSecrets:
+#   secretManager:
+#     enabled: false
+#     list:
+#       # Pre-configured MongoDB secrets - uncomment to use
+#       # - name: qa-shared-mongodb-eks-user
+#       #   refreshInterval: 24h
+#       
+#   parameterStore:
+#     enabled: false
+#     list: []
+
+# Environment variables for your application
+# env: []
+#   # Example: Simple environment variables
+  # - name: NODE_ENV
+  #   value: "staging"
+  # - name: LOG_LEVEL
+  #   value: "info"
+  # 
+  # Example: MongoDB secrets (after enabling external secrets above)
+  # - name: MONGO_URL
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: qa-shared-mongodb-eks-user-sm-secret
+  #       key: full_connstring
+  # - name: MONGO_HOST
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: qa-shared-mongodb-eks-user-sm-secret
+  #       key: host
+
+  env:
+    - name: DATABASE_URL
+      value: postgresql://postgres:0wci2ol250yhzhwttw3tvufel9pg2coc@shortline.proxy.rlwy.net:19075/qa
+    # - name: DATABASE_HOST
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: host
+    #       name: qa-shared-rds-pg-deploy-host
+    # - name: DATABASE_USER
+    #   valueFrom:
+    #       secretKeyRef:
+    #       key: user
+    #       name: qa-shared-rds-pg-deploy-user
+    # - name: DATABASE_PASSWORD
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: qa-shared-rds-pg-deploy-user
+    #       key: password
+    # - name: DATABASE_NAME
+    #   value: qa
+
+    ## aws
+    - name: AWS_REGION
+      value: us-east-2
+    - name: AWS_ACCESS_KEY_ID
+      value: example
+    - name: AWS_SECRET_ACCESS_KEY
+      value: example
+    - name: AWS_S3_BUCKET_NAME
+      value: dev-dynamic-quote-us-east-2-181276599638
+
+    ## cloud front
+    - name: CLOUD_FRONT_DOMAIN
+      value: https://d3umbno2snuojo.cloudfront.net
+
+    ## conversations
+    - name: CONVERSATIONS_API_URL
+      value: http://conversations-api/services/conversations
+
+    ## products
+    - name: PRODUCTS_API_URL
+      value: https://y2g52fo88c.execute-api.us-east-2.amazonaws.com/v1/v1
+
+    ## webpay
+    - name: WEBPAY_COMMERCE_CODE
+      value: 597055555535
+    - name: WEBPAY_API_KEY
+      value: example
+    - name: WEBPAY_RETURN_BASE_URL
+      value: https://cotizador-ia-env-qa-zero-q.vercel.app
+
+    ## trigger.dev
+    - name: TRIGGER_SECRET_KEY
+      value: example
+    
+# Extra labels and annotations
+# extraLabels: {}
+# annotation: {}
+
+# Enable automatic OpenTelemetry instrumentation for Node.js
+# autoinstrumentation: false
+
+# Security contexts
+# podSecurityContext: {}
+#   # Example:
+#   # fsGroup: 2000
+#   # runAsNonRoot: true
+#   # runAsUser: 1000
+#   
+# securityContext: {}
+#   # Example:
+#   # allowPrivilegeEscalation: false
+#   # capabilities:
+#   #   drop:
+#   #   - ALL
+#   # readOnlyRootFilesystem: true
+#   # runAsNonRoot: true
+#   # runAsUser: 1000
+
+# Image pull secrets
+# imagePullSecrets: []
+
+# Node scheduling
+# nodeSelector: {}
+# tolerations: []
+# affinity: {}
+
+# Pod distribution across zones/nodes (for high availability)
+# topologySpreadConstraints: []
+#   # Example - Spread pods across availability zones:
+#   # - maxSkew: 1
+#   #   topologyKey: topology.kubernetes.io/zone
+#   #   whenUnsatisfiable: DoNotSchedule
+#   #   labelSelector:
+#   #     matchLabels:
+#   #       app: my-app
+#   #
+#   # Example - Spread across nodes for better availability:
+#   # - maxSkew: 1
+#   #   topologyKey: kubernetes.io/hostname
+#   #   whenUnsatisfiable: ScheduleAnyway
+#   #   labelSelector:
+#   #     matchLabels:
+#   #       app: my-app
+
+# Health checks (more conservative for QA)
+# livenessProbe: {}
+#   # Example:
+#   # httpGet:
+#   #   path: /health
+#   #   port: 3000
+#   # initialDelaySeconds: 45
+#   # periodSeconds: 15
+#   # timeoutSeconds: 5
+#   # failureThreshold: 3
+#   
+# readinessProbe: {}
+#   # Example:
+#   # httpGet:
+#   #   path: /ready
+#   #   port: 3000
+#   # initialDelaySeconds: 15
+#   # periodSeconds: 10
+#   # timeoutSeconds: 3
+#   # failureThreshold: 3
+
+# Additional service configuration
+# service:
+#   type: ClusterIP
+#   port: 80
+#   targetPort: 3000
+#   headless: false
+
+# Additional ingress configuration
+# ingressRoute:
+#   tls: {}
+#   middlewares: {}
+
+# ========= OBSERVABILITY & MONITORING =========
+# observability:
+#   # OpenTelemetry auto-instrumentation
+#   opentelemetry:
+#     enabled: true
+#     inject:
+#       # Enable Node.js auto-instrumentation for production
+#       nodejs:
+#         enabled: true
+#         instrumentation: "grafana-tempo/node-instrumentation"
+#       python:
+#         enabled: false
+#       java:
+#         enabled: false
+#       dotnet:
+#         enabled: false
+  
+#   # Prometheus metrics collection
+#   metrics:
+#     enabled: true
+#     port: 9090
+#     path: "/metrics"
+#     annotations: true
+#     # Service labels for ServiceMonitor discovery
+#     serviceLabels:
+#       app.prometheus.metrics.custom: "true"
+
+# ========= MIGRATION NOTES =========
+# If migrating from old values structure, note:
+# - Structure completely flattened - no more global/zeroq sections
+# - All configuration moved to root level 
+# - External secrets simplified to root-level configuration
+# - Single workload type - no more api/consumer separation
+# - Company labels requirement removed
+# See chart documentation for current structure

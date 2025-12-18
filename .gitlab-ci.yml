@@ -1,0 +1,53 @@
+# ZeroQ Application CI/CD Pipeline
+# This pipeline uses the standardized ZeroQ templates for:
+# - Security scanning with quality gates
+# - Image building and ECR push
+# - Kubernetes deployment via Helm
+include:
+  # Security scanning with quality gates
+  - project: "zeroq/devops/gitlab-templates"
+    file: "security-scanning.gitlab-ci.yml"
+    ref: "v1.0.0"
+  # Image building and ECR push
+  - project: "zeroq/devops/gitlab-templates"
+    file: "build-images.gitlab-ci.yml"
+    ref: "v1.0.0"
+  # Kubernetes deployment
+  - project: "zeroq/devops/gitlab-templates"
+    file: "deploy.gitlab-ci.yml"
+    ref: "v1.0.0"
+# Pipeline stages (defined in included templates)
+# stages:
+#   - security-scan  # Security quality gates
+#   - build         # Docker image build & push
+#   - deploy        # Kubernetes deployment
+
+# ========= PROJECT SPECIFIC CONFIGURATION =========
+variables:
+  # ZeroQ Chart version (IMPORTANT: Pin to specific version for reproducibility)
+  CHART_VERSION: "2.3.0"               # ZeroQChart version to deploy
+  
+  # Security thresholds (customize as needed)
+  SECURITY_HIGH_THRESHOLD: "10"          # Allow 5 high vulnerabilities
+  SECURITY_DEPENDENCY_HIGH: "10"         # Allow 3 high dependency vulns
+  
+  # Uncomment and customize if needed:
+  # SECURITY_CRITICAL_THRESHOLD: "0"    # Zero critical vulnerabilities
+  # SECURITY_SECRETS_THRESHOLD: "0"     # Zero secrets in code
+  # SECURITY_SAST_HIGH_THRESHOLD: "0"   # Zero high SAST issues
+
+# ========= CUSTOM JOBS (if needed) =========
+# Add your custom jobs here, for example:
+
+# unit-tests:
+#   stage: security-scan  # Run before build
+#   image: node:18-alpine
+#   script:
+#     - npm ci
+#     - npm run test
+#   artifacts:
+#     reports:
+#       junit: test-results.xml
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+#     - if: $CI_COMMIT_BRANCH =~ /^(develop|development|qa|main|master)$/

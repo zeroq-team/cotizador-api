@@ -1,0 +1,248 @@
+# ZeroQ Chart Values - Production Environment
+# This file configures your application for the production environment
+
+# ==============================================================================
+# PRODUCTION ENVIRONMENT CONFIGURATION
+# ==============================================================================
+
+# ==============================================================================
+# MINIMAL CONFIGURATION - ENABLED BY DEFAULT
+# ==============================================================================
+
+# Master switch - controls if the entire application is deployed
+enabled: true
+
+# Number of replicas for high availability
+replicaCount: 3
+
+# Image configuration (managed by CI/CD pipeline)
+image:
+  repository: 825515450958.dkr.ecr.us-east-2.amazonaws.com/quotation-api  # 🔄 CHANGE THIS: Update with your service name. the Tag is overridden by CI: ${TAG_VERSION}
+  pullPolicy: Always
+
+# Service configuration - enabled for exposed applications (web, api, etc)
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 3000  # 🔄 CHANGE THIS: Update with your application port
+
+# Ingress configuration - enables external access (web, api, etc)
+ingressRoute:
+  enabled: true
+  host: api.zeroq.cl
+  paths:
+    - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
+
+# Production resource limits
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+# Production tolerations for spot instances
+tolerations:
+  - key: "spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+# Production affinity for spot instances and pod distribution
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: spot
+              operator: In
+              values:
+                - "true"
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: quotation-api  # 🔄 CHANGE THIS: Update with your service name (same as projectName or CI_PROJECT_NAME)
+          topologyKey: kubernetes.io/hostname
+
+# Production topology spread constraints for high availability
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway  # Flexible: intenta distribuir por zonas, pero no bloquea
+    labelSelector:
+      matchLabels:
+        app: quotation-api  # 🔄 CHANGE THIS: Update with your service name (same as projectName or CI_PROJECT_NAME)
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway  # Flexible: distribuye por nodos dentro de la zona
+    labelSelector:
+      matchLabels:
+        app: quotation-api  # 🔄 CHANGE THIS: Update with your service name (same as projectName or CI_PROJECT_NAME)
+
+# ==============================================================================
+# OPTIONAL CONFIGURATION - COMMENTED BY DEFAULT
+# ==============================================================================
+
+# Optional: Override project name (defaults to CI_PROJECT_NAME from GitLab)
+# projectName: ""
+
+# Optional: Complete override of resource names (highest priority)
+# Use this to have full control over Kubernetes resource names
+# fullnameOverride: ""
+
+# Optional: Override chart name portion only (rarely needed)
+# nameOverride: ""
+
+# External secrets configuration
+# externalSecrets:
+#   secretManager:
+#     enabled: false
+#     list:
+#       # Pre-configured MongoDB secrets - uncomment to use
+#       # - name: prd-shared-mongodb-eks-user
+#       #   refreshInterval: 24h
+#       
+#   parameterStore:
+#     enabled: false
+#     list: []
+
+# Environment variables for your application
+# env: []
+#   # Example: Simple environment variables
+#   # - name: NODE_ENV
+#   #   value: "production"
+#   # - name: LOG_LEVEL
+#   #   value: "warn"
+#   # 
+#   # Example: MongoDB secrets (after enabling external secrets above)
+#   # - name: MONGO_URL
+#   #   valueFrom:
+#   #     secretKeyRef:
+#   #       name: prd-shared-mongodb-eks-user-sm-secret
+#   #       key: full_connstring
+#   # - name: MONGO_HOST
+#   #   valueFrom:
+#   #     secretKeyRef:
+#   #       name: prd-shared-mongodb-eks-user-sm-secret
+#   #       key: host
+
+env: 
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: prd-shared-postgresql-eks-user-sm-secret
+        key: prd-shared-rds-pg-deploy-user
+  - name: CONVERSATIONS_API_URL
+    value: http://conversations-api/services/conversations
+  - name: AWS_S3_BUCKET_NAME
+    value: dev-dynamic-quote-us-east-2-181276599638
+  - name: PRODUCTS_API_URL
+    value: https://y2g52fo88c.execute-api.us-east-2.amazonaws.com/v1/v1
+  - name: WEBPAY_COMMERCE_CODE
+    value: 597055555535
+  - name: WEBPAY_RETURN_BASE_URL
+    value: https://cotizador-ia-two.vercel.app
+
+# Extra labels and annotations
+# extraLabels: {}
+# annotation: {}
+
+# Enable automatic OpenTelemetry instrumentation for Node.js
+# autoinstrumentation: false
+
+# Security contexts
+# podSecurityContext: {}
+#   # Example:
+#   # fsGroup: 2000
+#   # runAsNonRoot: true
+#   # runAsUser: 1000
+#   
+# securityContext: {}
+#   # Example:
+#   # allowPrivilegeEscalation: false
+#   # capabilities:
+#   #   drop:
+#   #   - ALL
+#   # readOnlyRootFilesystem: true
+#   # runAsNonRoot: true
+#   # runAsUser: 1000
+
+# Image pull secrets
+# imagePullSecrets: []
+
+# Additional node scheduling (beyond spot nodes)
+# nodeSelector: {}
+
+# Health checks (more conservative for production)
+# livenessProbe: {}
+#   # Example:
+#   # httpGet:
+#   #   path: /health
+#   #   port: 3000
+#   # initialDelaySeconds: 60
+#   # periodSeconds: 20
+#   # timeoutSeconds: 10
+#   # failureThreshold: 5
+#   
+# readinessProbe: {}
+#   # Example:
+#   # httpGet:
+#   #   path: /ready
+#   #   port: 3000
+#   # initialDelaySeconds: 30
+#   # periodSeconds: 15
+#   # timeoutSeconds: 5
+#   # failureThreshold: 5
+
+# Additional service configuration
+# service:
+#   type: ClusterIP
+#   port: 80
+#   targetPort: 3000
+#   headless: false
+
+# Additional ingress configuration
+# ingressRoute:
+#   tls: {}
+#   middlewares: {}
+
+# ========= OBSERVABILITY & MONITORING =========
+observability:
+  # OpenTelemetry auto-instrumentation
+  opentelemetry:
+    enabled: true
+    inject:
+      # Enable Node.js auto-instrumentation for production
+      nodejs:
+        enabled: true
+        instrumentation: "grafana-tempo/node-instrumentation"
+      python:
+        enabled: false
+      java:
+        enabled: false
+      dotnet:
+        enabled: false
+  
+  # Prometheus metrics collection
+  metrics:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+    annotations: true
+    # Service labels for ServiceMonitor discovery
+    serviceLabels:
+      app.prometheus.metrics.custom: "true"
+
+# ========= MIGRATION NOTES =========
+# If migrating from old values structure, note:
+# - externalSecrets simplified to root-level configuration
+# - observability moved to zeroq.observability
+# - tolerations/affinity moved to api/consumer specific sections
+# - service/ingressRoute moved under api/consumer sections
+# - labels restructured into categories with company labels (cl.zeroq/*)
+# See MIGRATION-v2.0.md for details
