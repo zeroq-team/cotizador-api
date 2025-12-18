@@ -1,0 +1,82 @@
+# Dependencies
+node_modules
+
+# Build output (se copiará desde el stage de build)
+dist
+
+# Tests
+coverage
+.nyc_output
+test
+*.spec.ts
+*.e2e-spec.ts
+jest.config.js
+jest-e2e.json
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.idea
+.vscode
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+docs
+README.md
+*.md
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+.circleci
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Helm charts (no necesarios en la imagen)
+deploy
+
+# Temporary files
+.temp
+.tmp
+*.tmp
+*.temp
+
+# Trigger.dev
+.trigger
+
+# Build artifacts
+*.tsbuildinfo
+
