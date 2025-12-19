@@ -59,9 +59,9 @@ resources:
 
 # External secrets configuration
 externalSecrets:
-  secretsManager:
+  secretManager:
     enabled: true
-    secrets:
+    list:
       - name: qa-shared-eks-quotation-api-cronjob-apikey
         refreshInterval: 24h
       - name: qa-shared-eks-quotation-api-webpay-credentials
