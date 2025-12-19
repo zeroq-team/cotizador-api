@@ -25,7 +25,7 @@ service:
   enabled: true
   type: ClusterIP
   port: 80
-  targetPort: 3000  # 🔄 CHANGE THIS: Update with your application port
+  targetPort: 3002  # 🔄 CHANGE THIS: Update with your application port
 
 # Ingress configuration - enables external access (web, api, etc)
 ingressRoute:
