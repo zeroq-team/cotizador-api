@@ -102,12 +102,12 @@ env:
   - name: AWS_ACCESS_KEY_ID
     valueFrom: 
       secretKeyRef:
-        name: qa-shared-eks-quotation-api-aws-access-sm
+        name: qa-shared-eks-quotation-api-aws-access-sm-secret
         key: AWS_ACCESS_KEY_ID
   - name: AWS_SECRET_ACCESS_KEY
     valueFrom:
       secretKeyRef:
-        name: qa-shared-eks-quotation-api-aws-access-sm
+        name: qa-shared-eks-quotation-api-aws-access-sm-secret
         key: AWS_SECRET_ACCESS_KEY
   - name: AWS_S3_BUCKET_NAME
     value: dev-dynamic-quote-us-east-2-181276599638
@@ -130,7 +130,7 @@ env:
   - name: WEBPAY_API_KEY
     valueFrom:
       secretKeyRef:
-        name: qa-shared-eks-quotation-api-webpay-credentials-sm
+        name: qa-shared-eks-quotation-api-webpay-credentials-sm-secret
         key: WEBPAY_API_KEY
   - name: WEBPAY_RETURN_BASE_URL
     value: https://cotizador-ia-env-qa-zero-q.vercel.app
@@ -139,7 +139,7 @@ env:
   - name: TRIGGER_SECRET_KEY
     valueFrom:
       secretKeyRef:
-        name: qa-shared-eks-quotation-api-cronjob-apikey-sm
+        name: qa-shared-eks-quotation-api-cronjob-apikey-sm-secret
         key: TRIGGER_SECRET_KEY
     
 # Extra labels and annotations
