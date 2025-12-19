@@ -59,16 +59,16 @@ resources:
 
 # External secrets configuration
 externalSecrets:
-  secretManager:
+  secretsManager:
     enabled: true
-    list:
-      # Pre-configured MongoDB secrets - uncomment to use
+    secrets:
       - name: qa-shared-eks-quotation-api-cronjob-apikey
         refreshInterval: 24h
       - name: qa-shared-eks-quotation-api-webpay-credentials
         refreshInterval: 24h
       - name: qa-shared-eks-quotation-api-aws-access
         refreshInterval: 24h
+
 #       
 #   parameterStore:
 #     enabled: false
