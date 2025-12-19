@@ -25,7 +25,7 @@ include:
 # ========= PROJECT SPECIFIC CONFIGURATION =========
 variables:
   # ZeroQ Chart version (IMPORTANT: Pin to specific version for reproducibility)
-  CHART_VERSION: "2.4.1"               # ZeroQChart version to deploy
+  CHART_VERSION: "2.5.0"               # ZeroQChart version to deploy
   
   # Security thresholds (customize as needed)
   SECURITY_HIGH_THRESHOLD: "5"          # Allow 5 high vulnerabilities
