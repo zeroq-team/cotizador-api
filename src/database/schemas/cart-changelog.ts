@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp, text } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, integer, timestamp, text, boolean } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 import { carts } from './carts'
@@ -32,4 +32,3 @@ export const selectCartChangelogSchema = createSelectSchema(cartChangelog)
 // Type exports
 export type CartChangelog = typeof cartChangelog.$inferSelect
 export type NewCartChangelog = typeof cartChangelog.$inferInsert
-

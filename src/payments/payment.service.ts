@@ -2,6 +2,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PaymentRepository, PaginatedResult } from './payment.repository';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -14,13 +17,18 @@ import { PaymentFiltersDto } from './dto/payment-filters.dto';
 import { Payment, PaymentStatus } from '../database/schemas';
 import { S3Service } from '../s3/s3.service';
 import { PdfGeneratorService } from './services/pdf-generator.service';
+import { WebpayService } from '../webpay/webpay.service';
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
+
   constructor(
     private paymentRepository: PaymentRepository,
     private s3Service: S3Service,
     private pdfGeneratorService: PdfGeneratorService,
+    @Inject(forwardRef(() => WebpayService))
+    private webpayService: WebpayService,
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
@@ -402,5 +410,134 @@ export class PaymentService {
     }
 
     return await this.pdfGeneratorService.generatePaymentReceipt(payment);
+  }
+
+  /**
+   * Maneja el timeout de una transacción WebPay
+   * Cancela la transacción en Transbank y actualiza el pago como fallido
+   * @param id - ID del pago
+   * @param buyOrder - BuyOrder de la transacción
+   * @param taskId - ID de la tarea de Trigger.dev que ejecuta el timeout (para trazabilidad)
+   */
+  async handleWebpayTimeout(
+    id: string,
+    buyOrder: string,
+    taskId?: string,
+  ): Promise<Payment> {
+    this.logger.log(
+      `Manejando timeout de WebPay para pago ${id}, buyOrder: ${buyOrder}`,
+    );
+
+    const payment = await this.findById(id);
+
+    // Si el pago ya está en un estado final, no hacer nada
+    if (['completed', 'cancelled', 'failed', 'refunded'].includes(payment.status)) {
+      this.logger.log(
+        `Pago ${id} ya tiene estado final: ${payment.status}. No se requiere acción.`,
+      );
+      return payment;
+    }
+
+    // Verificar que es un pago WebPay
+    if (payment.paymentType !== 'webpay') {
+      throw new BadRequestException(
+        'Este endpoint solo puede usarse para pagos WebPay',
+      );
+    }
+
+    // Intentar revertir la transacción en Transbank solo si fue autorizada
+    let cancelResult = null;
+    let cancelError = null;
+
+    // Obtener información necesaria para revertir la transacción
+    const existingMetadata =
+      typeof payment.metadata === 'object' && payment.metadata !== null
+        ? (payment.metadata as Record<string, unknown>)
+        : {};
+    
+    const webpayInit = existingMetadata.webpay_init as Record<string, unknown> | undefined;
+    const webpayCommit = existingMetadata.webpay_commit as Record<string, unknown> | undefined;
+    
+    // El token puede estar en webpay_init o webpay_commit
+    const token = (webpayInit?.token || webpayCommit?.token) as string | undefined;
+    const childBuyOrder = webpayInit?.childBuyOrder as string | undefined;
+    const childCommerceCode = webpayInit?.childCommerceCode as string | undefined;
+    const transactionBuyOrder = buyOrder || payment.transactionId;
+    const authorizationCode = payment.authorizationCode;
+
+    // Solo intentar revertir si la transacción fue autorizada Y tenemos toda la información necesaria
+    // Según la documentación de Transbank, refund necesita: token, buyOrder, commerceCode, amount
+    if (authorizationCode && token && childBuyOrder && childCommerceCode) {
+      try {
+        this.logger.log(
+          `Intentando revertir transacción WebPay autorizada en Transbank con token: ${token}, childBuyOrder: ${childBuyOrder}, childCommerceCode: ${childCommerceCode}`,
+        );
+
+        const amount = parseFloat(payment.amount);
+
+        // Revertir la transacción usando WebpayService
+        // Según la documentación: refund(token, childBuyOrder, childCommerceCode, amount)
+        cancelResult = await this.webpayService.reverseTransaction(
+          token,
+          childBuyOrder,
+          childCommerceCode,
+          amount,
+        );
+
+        this.logger.log(
+          `Transacción WebPay revertida exitosamente en Transbank`,
+        );
+      } catch (error) {
+        // Si falla la reversión, no es crítico - puede que la transacción ya no exista
+        // o que Transbank no permita revertirla en este estado
+        cancelError = error;
+        this.logger.warn(
+          `No se pudo revertir la transacción en Transbank (puede que ya no exista o esté en un estado que no permite reversión): ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        );
+      }
+    } else {
+      if (!authorizationCode) {
+        this.logger.log(
+          `Transacción WebPay no fue autorizada (no tiene authorizationCode). No se requiere reversión en Transbank.`,
+        );
+      } else {
+        this.logger.warn(
+          `No se puede revertir la transacción: faltan datos requeridos (token: ${!!token}, childBuyOrder: ${!!childBuyOrder}, childCommerceCode: ${!!childCommerceCode})`,
+        );
+      }
+    }
+
+    // Actualizar el pago como expirado/fallido
+    // existingMetadata ya se obtuvo arriba
+
+    const updatedPayment = await this.paymentRepository.update(id, {
+      status: 'failed',
+      notes: `Transacción WebPay expirada - No se completó en el tiempo límite (3 minutos)`,
+      metadata: {
+        ...existingMetadata,
+        webpay_timeout: {
+          expired_at: new Date().toISOString(),
+          reason: 'Transaction timeout after 3 minutes',
+          original_status: payment.status,
+          task_id: taskId || null, // ID de la tarea que ejecutó el timeout (para trazabilidad)
+          transbank_cancel_attempted: true,
+          transbank_cancel_success: cancelResult !== null,
+          transbank_cancel_error: cancelError
+            ? (cancelError instanceof Error
+                ? cancelError.message
+                : 'Error desconocido')
+            : null,
+          transbank_cancel_response: cancelResult,
+        },
+      },
+    });
+
+    if (!updatedPayment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+
+    this.logger.log(`Pago ${id} marcado como expirado exitosamente`);
+
+    return updatedPayment;
   }
 }

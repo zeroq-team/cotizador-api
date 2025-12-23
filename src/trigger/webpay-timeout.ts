@@ -19,55 +19,49 @@ export const webpayTimeoutTask = task({
         `Ejecutando timeout para pago ${payload.paymentId}, buyOrder: ${payload.buyOrder}`,
       );
 
-      // Verificar el estado actual del pago
-      const paymentResponse = await axios.get(
-        `${baseUrl}/payments/${payload.paymentId}`,
-      );
-
-      const payment = paymentResponse.data;
-
-      // Si el pago ya fue completado, cancelado o falló, no hacer nada
-      if (['completed', 'cancelled', 'failed', 'refunded'].includes(payment.status)) {
-        logger.info(
-          `Pago ${payload.paymentId} ya tiene estado final: ${payment.status}. No se requiere acción.`,
-        );
-        return {
-          action: 'skipped',
-          reason: `Payment already in final state: ${payment.status}`,
-        };
-      }
-
-      // Si sigue en pending o processing después de 3 minutos, marcar como expirado
+      // Llamar al endpoint de la API que maneja el timeout
+      // Este endpoint se encargará de cancelar la transacción en Transbank y actualizar el pago
+      // Incluir el ID de la tarea/run para trazabilidad
+      const taskId = (ctx as any)?.run?.id || (ctx as any)?.id || null;
+      
       logger.info(
-        `Pago ${payload.paymentId} expiró después de 3 minutos. Estado actual: ${payment.status}`,
+        `Enviando timeout con taskId: ${taskId} para pago ${payload.paymentId}`,
       );
 
-      // Actualizar el pago como expirado/fallido
-      await axios.patch(`${baseUrl}/payments/${payload.paymentId}`, {
-        status: 'failed',
-        notes: `Transacción WebPay expirada - No se completó en el tiempo límite (3 minutos)`,
-        metadata: {
-          ...payment.metadata,
-          webpay_timeout: {
-            expired_at: new Date().toISOString(),
-            reason: 'Transaction timeout after 3 minutes',
-            original_status: payment.status,
-          },
+      const response = await axios.post(
+        `${baseUrl}/payments/${payload.paymentId}/webpay-timeout`,
+        {
+          buyOrder: payload.buyOrder,
+          taskId, // ID del run/task para trazabilidad
         },
-      });
+      );
 
-      logger.info(`Pago ${payload.paymentId} marcado como expirado exitosamente`);
+      logger.info(
+        `Timeout de WebPay procesado exitosamente para pago ${payload.paymentId}`,
+      );
 
       return {
         action: 'expired',
         paymentId: payload.paymentId,
         buyOrder: payload.buyOrder,
         expiredAt: new Date().toISOString(),
+        payment: response.data,
       };
     } catch (error) {
       logger.error(`Error al procesar timeout del pago ${payload.paymentId}:`, error);
+      
+      // Si el error es porque el pago ya está en estado final, no es un error crítico
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
+        logger.info(
+          `Pago ${payload.paymentId} ya está en estado final o no es un pago WebPay. No se requiere acción.`,
+        );
+        return {
+          action: 'skipped',
+          reason: error.response?.data?.message || 'Payment already in final state',
+        };
+      }
+
       throw error;
     }
   },
 });
-

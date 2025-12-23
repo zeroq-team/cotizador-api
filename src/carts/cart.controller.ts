@@ -7,6 +7,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
   UploadedFile,
@@ -22,6 +23,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
   ApiBody,
   ApiConsumes,
   ApiProduces,
@@ -35,6 +37,8 @@ import { AddPaymentProofDto } from './dto/responses/add-payment-proof.dto';
 import { CartResponseDto } from './dto/responses/cart-response.dto';
 import { QuoteListItemDto } from './dto/responses/quote-list-item.dto';
 import { ChangelogItemResponseDto } from './dto/responses/changelog-item-response.dto';
+import { CartSuggestionResponseDto } from './dto/responses/cart-suggestion-response.dto';
+import { CreateCartSuggestionDto, CreateCartSuggestionsDto } from './dto/create-cart-suggestion.dto';
 import { PaymentResponseDto } from '../payments/dto/payment-response.dto';
 
 @ApiTags('carts')
@@ -267,5 +271,92 @@ export class CartController {
       { ...addPaymentProofDto, cartId },
       file,
     );
+  }
+
+  @ApiOperation({
+    summary: 'Obtener sugerencias del carrito',
+    description: 'Retorna las sugerencias de productos para el carrito. Opcionalmente puede limitar la cantidad con el query param limit',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Número máximo de sugerencias a retornar (si no se especifica, retorna todas)' })
+  @ApiResponse({ status: 200, description: 'Lista de sugerencias', type: [CartSuggestionResponseDto] })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @Get(':id/suggestions')
+  async getCartSuggestions(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (limit) {
+      const limitNumber = parseInt(limit, 10);
+      return await this.cartService.getCartSuggestionsLatest(id, limitNumber);
+    }
+    return await this.cartService.getCartSuggestions(id);
+  }
+
+  @ApiOperation({
+    summary: 'Crear sugerencias para el carrito',
+    description: 'Agrega múltiples sugerencias de productos al carrito en una sola operación. Se genera automáticamente un interactionId único que agrupa todas las sugerencias del bulk',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiBody({ type: CreateCartSuggestionsDto })
+  @ApiResponse({ status: 201, description: 'Sugerencias creadas con interactionId generado automáticamente', type: [CartSuggestionResponseDto] })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @Post(':id/suggestions')
+  @HttpCode(HttpStatus.CREATED)
+  async createCartSuggestions(
+    @Param('id') cartId: string,
+    @Body() createSuggestionsDto: CreateCartSuggestionsDto,
+  ) {
+    return await this.cartService.createCartSuggestions(
+      cartId,
+      createSuggestionsDto.suggestions,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Obtener sugerencias por interacción',
+    description: 'Retorna todas las sugerencias asociadas a una interacción específica del flujo',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiParam({ name: 'interactionId', description: 'ID de la interacción del flujo' })
+  @ApiResponse({ status: 200, description: 'Lista de sugerencias de la interacción', type: [CartSuggestionResponseDto] })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @Get(':id/suggestions/interaction/:interactionId')
+  async getCartSuggestionsByInteraction(
+    @Param('id') cartId: string,
+    @Param('interactionId') interactionId: string,
+  ) {
+    return await this.cartService.getCartSuggestionsByCartAndInteraction(cartId, interactionId);
+  }
+
+  @ApiOperation({
+    summary: 'Eliminar todas las sugerencias del carrito',
+    description: 'Elimina todas las sugerencias asociadas a un carrito',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiResponse({ status: 200, description: 'Sugerencias eliminadas exitosamente' })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @Delete(':id/suggestions')
+  @HttpCode(HttpStatus.OK)
+  async deleteCartSuggestions(@Param('id') id: string) {
+    return await this.cartService.deleteCartSuggestions(id);
+  }
+
+  @ApiOperation({
+    summary: 'Eliminar sugerencias por interacción',
+    description: 'Elimina todas las sugerencias asociadas a una interacción específica del flujo',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiParam({ name: 'interactionId', description: 'ID de la interacción del flujo' })
+  @ApiResponse({ status: 200, description: 'Sugerencias eliminadas exitosamente' })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @Delete(':id/suggestions/interaction/:interactionId')
+  @HttpCode(HttpStatus.OK)
+  async deleteCartSuggestionsByInteraction(
+    @Param('id') cartId: string,
+    @Param('interactionId') interactionId: string,
+  ) {
+    return await this.cartService.deleteCartSuggestionsByCartAndInteraction(cartId, interactionId);
   }
 }

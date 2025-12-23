@@ -24,6 +24,7 @@ export const paymentStatusEnum = pgEnum('payment_status', [
 
 // Payment Type Enum
 export const paymentTypeEnum = pgEnum('payment_type', [
+  'purchase_order',
   'webpay',
   'bank_transfer',
   'check',

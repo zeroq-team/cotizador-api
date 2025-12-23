@@ -46,6 +46,15 @@ export class OrganizationPaymentMethodService {
       isCheckActive: createDto.isCheckActive ?? false,
       isWebPayActive: createDto.isWebPayActive ?? false,
       isBankTransferActive: createDto.isBankTransferActive ?? false,
+      isPurchaseOrderActive: createDto.isPurchaseOrderActive ?? false,
+      webPayPrefix: createDto.webPayPrefix,
+      webPayChildCommerceCode: createDto.webPayChildCommerceCode,
+      bankName: createDto.bankName,
+      accountType: createDto.accountType,
+      accountNumber: createDto.accountNumber,
+      accountHolderName: createDto.accountHolderName,
+      documentType: createDto.documentType,
+      documentNumber: createDto.documentNumber,
     });
   }
 

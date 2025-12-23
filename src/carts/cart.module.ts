@@ -3,6 +3,7 @@ import { CartService } from './cart.service';
 import { CartController } from './cart.controller';
 import { CartRepository } from './cart.repository';
 import { CartChangelogRepository } from './cart-changelog.repository';
+import { CartSuggestionsRepository } from './cart-suggestions.repository';
 import { CartGateway } from './cart.gateway';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { QuotePdfGeneratorService } from './services/quote-pdf-generator.service';
@@ -20,6 +21,7 @@ import { OrganizationModule } from '../organization/organization.module';
     CartService,
     CartRepository,
     CartChangelogRepository,
+    CartSuggestionsRepository,
     CartGateway,
     ConversationsService,
     PriceListEvaluationService,

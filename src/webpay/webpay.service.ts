@@ -4,6 +4,8 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CreateWebpayTransactionDto } from './dto/create-webpay-transaction.dto';
@@ -12,11 +14,11 @@ import {
   WebpayTransactionResponseDto,
   WebpayCommitResponseDto,
 } from './dto/webpay-transaction-response.dto';
-import { PaymentService } from '../payment.service';
-import { OrganizationPaymentMethodRepository } from '../../organization/organization-payment-method.repository';
-import { webpayTimeoutTask } from '../../trigger/webpay-timeout';
+import { PaymentService } from '../payments/payment.service';
+import { OrganizationPaymentMethodRepository } from '../organization/organization-payment-method.repository';
+import { webpayTimeoutTask } from '../trigger/webpay-timeout';
 import { runs } from '@trigger.dev/sdk/v3';
-import { PaymentStatus } from '../../database/schemas';
+import { PaymentStatus } from '../database/schemas';
 
 // Importar SDK de Transbank
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -36,6 +38,7 @@ export class WebpayService {
 
   constructor(
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => PaymentService))
     private readonly paymentService: PaymentService,
     private readonly organizationPaymentMethodRepository: OrganizationPaymentMethodRepository,
   ) {
@@ -270,7 +273,10 @@ export class WebpayService {
             webpay_init: {
               buyOrder,
               sessionId,
+              childBuyOrder,
+              childCommerceCode,
               organizationId,
+              token: response.token, // Guardar el token para poder hacer refund después
               timestamp: new Date().toISOString(),
             },
             timeout_task_id: timeoutTask.id,
@@ -409,6 +415,7 @@ export class WebpayService {
           metadata: {
             ...existingMetadata,
             webpay_commit: {
+              token: dto.token, // Guardar el token también en commit para referencia
               vci: response.vci,
               amount: mainDetail.amount,
               status: mainDetail.status,
@@ -464,6 +471,52 @@ export class WebpayService {
         error instanceof Error ? error.message : 'Error desconocido',
       );
     }
+  }
+
+  /**
+   * Reversa o anula una transacción autorizada en Webpay Plus Mall
+   * Nota: Solo funciona para transacciones que fueron autorizadas (tienen authorizationCode)
+   * Para transacciones que no fueron autorizadas (timeout), no hay nada que revertir en Transbank
+   * 
+   * Según la documentación de Transbank:
+   * https://www.transbankdevelopers.cl/documentacion/webpay-plus#webpay-plus
+   * El método refund requiere: token, buyOrder (childBuyOrder), commerceCode, amount
+   * 
+   * @param token - Token de la transacción WebPay
+   * @param childBuyOrder - El childBuyOrder de la transacción
+   * @param childCommerceCode - El código de comercio hijo (child commerce code)
+   * @param amount - Monto de la transacción
+   */
+  async reverseTransaction(
+    token: string,
+    childBuyOrder: string,
+    childCommerceCode: string,
+    amount: number,
+  ): Promise<any> {
+    this.logger.log(
+      `Revirtiendo transacción WebPay con token: ${token}, childBuyOrder: ${childBuyOrder}, childCommerceCode: ${childCommerceCode}, amount: ${amount}`,
+    );
+
+    if (!token || !childBuyOrder || !childCommerceCode) {
+      throw new BadRequestException(
+        'Token, childBuyOrder y childCommerceCode son requeridos para revertir una transacción',
+      );
+    }
+
+    const mallTransaction = this.getMallTransaction();
+
+    // Revertir la transacción con Transbank usando refund
+    // Según la documentación: refund(token, buyOrder, commerceCode, amount)
+    const response = await mallTransaction.refund(
+      token,
+      childBuyOrder,
+      childCommerceCode,
+      amount,
+    );
+
+    this.logger.log('Transacción revertida exitosamente en Transbank');
+
+    return response;
   }
 }
 

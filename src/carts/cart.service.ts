@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { CartRepository } from './cart.repository';
 import { CartChangelogRepository } from './cart-changelog.repository';
+import { CartSuggestionsRepository } from './cart-suggestions.repository';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
@@ -30,6 +31,7 @@ export class CartService {
   constructor(
     private readonly cartRepository: CartRepository,
     private readonly cartChangelogRepository: CartChangelogRepository,
+    private readonly cartSuggestionsRepository: CartSuggestionsRepository,
     private readonly cartGateway: CartGateway,
     private readonly productsService: ProductsService,
     private readonly paymentService: PaymentService,
@@ -657,5 +659,143 @@ export class CartService {
       cart,
       organizationName,
     });
+  }
+
+  /**
+   * Obtiene todas las sugerencias de un carrito
+   */
+  async getCartSuggestions(cartId: string) {
+    const cart = await this.cartRepository.findById(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    return await this.cartSuggestionsRepository.findByCartId(cartId);
+  }
+
+  /**
+   * Obtiene las últimas N sugerencias de un carrito
+   */
+  async getCartSuggestionsLatest(cartId: string, limit: number = 10) {
+    const cart = await this.cartRepository.findById(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    return await this.cartSuggestionsRepository.findLatestByCartId(cartId, limit);
+  }
+
+  /**
+   * Crea múltiples sugerencias para un carrito
+   * Genera automáticamente un interactionId único y lo asigna a todas las sugerencias del bulk
+   */
+  async createCartSuggestions(
+    cartId: string,
+    suggestions: Array<{
+      productId: string;
+      productName: string;
+      sku?: string;
+      description?: string;
+    }>,
+  ) {
+    const cart = await this.cartRepository.findById(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    // Generar un interactionId único para este bulk de sugerencias
+    // Formato: interaction-{timestamp}-{random}
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 9);
+    const interactionId = `interaction-${timestamp}-${random}`;
+
+    this.logger.log(
+      `Creando ${suggestions.length} sugerencias para carrito ${cartId} con interactionId: ${interactionId}`,
+    );
+
+    // Asignar el mismo interactionId a todas las sugerencias del bulk
+    const suggestionsData = suggestions.map(s => ({
+      cartId,
+      interactionId,
+      ...s,
+    }));
+
+    const createdSuggestions = await this.cartSuggestionsRepository.createMany(suggestionsData);
+
+    this.logger.log(
+      `Sugerencias creadas exitosamente. InteractionId: ${interactionId}, Cantidad: ${createdSuggestions.length}`,
+    );
+
+    return createdSuggestions;
+  }
+
+  /**
+   * Elimina una sugerencia por ID
+   */
+  async deleteCartSuggestion(id: string) {
+    const suggestion = await this.cartSuggestionsRepository.findById(id);
+    if (!suggestion) {
+      throw new NotFoundException(`Suggestion with ID ${id} not found`);
+    }
+
+    const deleted = await this.cartSuggestionsRepository.delete(id);
+    if (!deleted) {
+      throw new NotFoundException(`Suggestion with ID ${id} not found`);
+    }
+
+    return { success: true, message: 'Suggestion deleted successfully' };
+  }
+
+  /**
+   * Elimina todas las sugerencias de un carrito
+   */
+  async deleteCartSuggestions(cartId: string) {
+    const cart = await this.cartRepository.findById(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    const deletedCount = await this.cartSuggestionsRepository.deleteByCartId(cartId);
+    return { success: true, deletedCount, message: `${deletedCount} suggestions deleted successfully` };
+  }
+
+  /**
+   * Elimina todas las sugerencias de una interacción específica
+   */
+  async deleteCartSuggestionsByInteraction(interactionId: string) {
+    const deletedCount = await this.cartSuggestionsRepository.deleteByInteractionId(interactionId);
+    return { success: true, deletedCount, message: `${deletedCount} suggestions deleted successfully for interaction ${interactionId}` };
+  }
+
+  /**
+   * Elimina todas las sugerencias de una interacción específica en un carrito
+   */
+  async deleteCartSuggestionsByCartAndInteraction(cartId: string, interactionId: string) {
+    const cart = await this.cartRepository.findById(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    const deletedCount = await this.cartSuggestionsRepository.deleteByCartIdAndInteractionId(cartId, interactionId);
+    return { success: true, deletedCount, message: `${deletedCount} suggestions deleted successfully for interaction ${interactionId} in cart ${cartId}` };
+  }
+
+  /**
+   * Obtiene sugerencias de una interacción específica
+   */
+  async getCartSuggestionsByInteraction(interactionId: string) {
+    return await this.cartSuggestionsRepository.findByInteractionId(interactionId);
+  }
+
+  /**
+   * Obtiene sugerencias de una interacción específica en un carrito
+   */
+  async getCartSuggestionsByCartAndInteraction(cartId: string, interactionId: string) {
+    const cart = await this.cartRepository.findById(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    return await this.cartSuggestionsRepository.findByCartIdAndInteractionId(cartId, interactionId);
   }
 }

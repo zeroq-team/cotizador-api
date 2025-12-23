@@ -208,6 +208,23 @@ export class PaymentController {
     return await this.paymentService.refundPayment(id, reason);
   }
 
+  @Post(':id/webpay-timeout')
+  @ApiOperation({ summary: 'Handle WebPay transaction timeout' })
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'WebPay timeout handled successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid payment type or state' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  async handleWebpayTimeout(
+    @Param('id') id: string,
+    @Body('buyOrder') buyOrder?: string,
+    @Body('taskId') taskId?: string,
+  ) {
+    return await this.paymentService.handleWebpayTimeout(id, buyOrder, taskId);
+  }
+
   @Post('proof')
   @ApiOperation({ summary: 'Create a proof-based payment (check or transfer)' })
   @ApiConsumes('multipart/form-data')

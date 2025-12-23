@@ -4,6 +4,7 @@ export * from './customization-field-groups';
 export * from './customization-fields';
 export * from './carts';
 export * from './cart-changelog';
+export * from './cart-suggestions';
 export * from './payments';
 export * from './organizations';
 export * from './organization-payment-methods';
