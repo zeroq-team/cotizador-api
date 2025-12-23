@@ -11,8 +11,16 @@ export const organizationPaymentMethods = pgTable(
     isCheckActive: boolean('is_check_active').notNull().default(false),
     isWebPayActive: boolean('is_web_pay_active').notNull().default(false),
     isBankTransferActive: boolean('is_bank_transfer_active').notNull().default(false),
+    isPurchaseOrderActive: boolean('is_purchase_order_active').notNull().default(false),
     webPayPrefix: varchar('web_pay_prefix', { length: 9 }).default('workit'),
     webPayChildCommerceCode: varchar('web_pay_child_commerce_code', { length: 50 }).unique(),
+    // Bank account information
+    bankName: varchar('bank_name', { length: 100 }),
+    accountType: varchar('account_type', { length: 20 }), // 'corriente' | 'ahorro'
+    accountNumber: varchar('account_number', { length: 50 }),
+    accountHolderName: varchar('account_holder_name', { length: 200 }),
+    documentType: varchar('document_type', { length: 20 }), // 'rut' | 'pasaporte' | 'cedula' | 'nit'
+    documentNumber: varchar('document_number', { length: 50 }), // Número de documento (RUT, pasaporte, etc.)
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -45,12 +53,31 @@ export const insertOrganizationPaymentMethodSchema = createInsertSchema(organiza
   isCheckActive: (schema) => schema.default(false),
   isWebPayActive: (schema) => schema.default(false),
   isBankTransferActive: (schema) => schema.default(false),
+  isPurchaseOrderActive: (schema) => schema.default(false),
   webPayPrefix: (schema) => schema
     .max(9, 'WebPay prefix must be 9 characters or less')
     .regex(/^[a-zA-Z0-9]*$/, 'WebPay prefix must contain only letters and numbers')
     .optional(),
   webPayChildCommerceCode: (schema) => schema
     .max(50, 'WebPay child commerce code must be 50 characters or less')
+    .optional(),
+  bankName: (schema) => schema
+    .max(100, 'Bank name must be 100 characters or less')
+    .optional(),
+  accountType: (schema) => schema
+    .max(20, 'Account type must be 20 characters or less')
+    .optional(),
+  accountNumber: (schema) => schema
+    .max(50, 'Account number must be 50 characters or less')
+    .optional(),
+  accountHolderName: (schema) => schema
+    .max(200, 'Account holder name must be 200 characters or less')
+    .optional(),
+  documentType: (schema) => schema
+    .max(20, 'Document type must be 20 characters or less')
+    .optional(),
+  documentNumber: (schema) => schema
+    .max(50, 'Document number must be 50 characters or less')
     .optional(),
 });
 

@@ -9,9 +9,9 @@ export class CreateProofPaymentDto {
 
   @ApiProperty({
     description: 'Payment type',
-    enum: ['bank_transfer', 'check'],
+    enum: ['bank_transfer', 'check', 'purchase_order'],
   })
-  @IsEnum(['bank_transfer', 'check'])
+  @IsEnum(['bank_transfer', 'check', 'purchase_order'])
   paymentType: PaymentType;
 
   @ApiProperty({ description: 'Payment amount' })
