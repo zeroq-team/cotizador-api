@@ -148,6 +148,27 @@
       "when": 1766520385282,
       "tag": "0020_broken_ravenous",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1766754231675,
+      "tag": "0021_slimy_selene",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1766754362680,
+      "tag": "0022_first_norrin_radd",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1766755283021,
+      "tag": "0023_living_spot",
+      "breakpoints": true
     }
   ]
 }

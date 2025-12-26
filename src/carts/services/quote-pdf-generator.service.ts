@@ -4,7 +4,7 @@ import { Cart, CartItemRecord } from '../../database/schemas';
 const PDFDocument = require('pdfkit');
 
 interface QuoteData {
-  cart: Cart & { items: CartItemRecord[] };
+  cart: Cart & { items: CartItemRecord[]; customer?: any };
   organizationName?: string;
   organizationLogo?: string;
 }
@@ -113,7 +113,12 @@ export class QuotePdfGeneratorService {
     doc.moveDown(1);
   }
 
-  private addCustomerInfo(doc: PDFKit.PDFDocument, cart: Cart): void {
+  private addCustomerInfo(doc: PDFKit.PDFDocument, cart: Cart & { customer?: any }): void {
+    if (!cart.customer) {
+      return;
+    }
+
+    const customer = cart.customer;
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#1f2937').text('Información del Cliente');
     doc.moveDown(0.5);
 
@@ -121,17 +126,17 @@ export class QuotePdfGeneratorService {
     const labelWidth = 150;
 
     // Nombre completo
-    if (cart.fullName) {
+    if (customer.fullName) {
       doc
         .fontSize(10)
         .font('Helvetica')
         .fillColor('#6b7280')
         .text('Nombre:', startX, doc.y, { continued: true, width: labelWidth });
-      doc.font('Helvetica-Bold').fillColor('#374151').text(` ${cart.fullName}`);
+      doc.font('Helvetica-Bold').fillColor('#374151').text(` ${customer.fullName}`);
     }
 
     // Tipo de documento
-    if (cart.documentType) {
+    if (customer.documentType) {
       const documentTypeLabels: Record<string, string> = {
         rut: 'RUT',
         passport: 'Pasaporte',
@@ -144,16 +149,83 @@ export class QuotePdfGeneratorService {
       doc
         .font('Helvetica-Bold')
         .fillColor('#374151')
-        .text(` ${documentTypeLabels[cart.documentType] || cart.documentType}`);
+        .text(` ${documentTypeLabels[customer.documentType] || customer.documentType}`);
     }
 
     // Número de documento
-    if (cart.documentNumber) {
+    if (customer.documentNumber) {
       doc
         .font('Helvetica')
         .fillColor('#6b7280')
         .text('N° de Documento:', startX, doc.y, { continued: true, width: labelWidth });
-      doc.font('Helvetica-Bold').fillColor('#374151').text(` ${cart.documentNumber}`);
+      doc.font('Helvetica-Bold').fillColor('#374151').text(` ${customer.documentNumber}`);
+    }
+
+    // Email
+    if (customer.email) {
+      doc
+        .font('Helvetica')
+        .fillColor('#6b7280')
+        .text('Email:', startX, doc.y, { continued: true, width: labelWidth });
+      doc.font('Helvetica-Bold').fillColor('#374151').text(` ${customer.email}`);
+    }
+
+    // Teléfono
+    if (customer.phone) {
+      doc
+        .font('Helvetica')
+        .fillColor('#6b7280')
+        .text('Teléfono:', startX, doc.y, { continued: true, width: labelWidth });
+      doc.font('Helvetica-Bold').fillColor('#374151').text(` ${customer.phone}`);
+    }
+
+    // Dirección de entrega
+    if (
+      customer.deliveryStreet ||
+      customer.deliveryCity ||
+      customer.deliveryRegion
+    ) {
+      doc.moveDown(0.5);
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#1f2937')
+        .text('Dirección de Entrega');
+      doc.moveDown(0.3);
+
+      let addressParts: string[] = [];
+      if (customer.deliveryStreet) {
+        const street = customer.deliveryStreetNumber
+          ? `${customer.deliveryStreet} ${customer.deliveryStreetNumber}`.trim()
+          : customer.deliveryStreet;
+        addressParts.push(street);
+      }
+      if (customer.deliveryApartment) {
+        addressParts.push(`Depto/Oficina: ${customer.deliveryApartment}`);
+      }
+      if (customer.deliveryOffice) {
+        addressParts.push(`Edificio: ${customer.deliveryOffice}`);
+      }
+      if (customer.deliveryCity) {
+        addressParts.push(customer.deliveryCity);
+      }
+      if (customer.deliveryRegion) {
+        addressParts.push(customer.deliveryRegion);
+      }
+      if (customer.deliveryPostalCode) {
+        addressParts.push(`Código Postal: ${customer.deliveryPostalCode}`);
+      }
+      if (customer.deliveryCountry) {
+        addressParts.push(customer.deliveryCountry);
+      }
+
+      if (addressParts.length > 0) {
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#374151')
+          .text(addressParts.join(', '), startX, doc.y);
+      }
     }
 
     // Fechas

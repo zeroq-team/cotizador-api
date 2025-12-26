@@ -4,11 +4,13 @@ import { DatabaseService } from '../database/database.service';
 import {
   carts,
   cartItems,
+  customers,
   type Cart,
   type NewCart,
   type CartItem,
   type CartItemRecord,
   type NewCartItem,
+  type Customer,
 } from '../database/schemas';
 import { ProductsService } from '../products/products.service';
 
@@ -62,11 +64,12 @@ export class CartRepository {
 
   async findByIdWithItems(
     id: string,
-  ): Promise<(Cart & { items: CartItemRecord[] }) | null> {
+  ): Promise<(Cart & { items: CartItemRecord[]; customer?: Customer | null }) | null> {
     const result = await this.databaseService.db
       .select()
       .from(carts)
       .leftJoin(cartItems, eq(cartItems.cartId, carts.id))
+      .leftJoin(customers, eq(customers.id, carts.customerId))
       .orderBy(asc(cartItems.createdAt))
       .where(eq(carts.id, id));
 
@@ -75,11 +78,12 @@ export class CartRepository {
     }
 
     const cart = result[0].carts;
+    const customer = result[0].customers || null;
     const items = result
       .filter((row) => row.cart_items)
       .map((row) => row.cart_items!);
 
-    return { ...cart, items };
+    return { ...cart, items, customer };
   }
 
   async findByConversationId(conversationId: string): Promise<Cart | null> {
