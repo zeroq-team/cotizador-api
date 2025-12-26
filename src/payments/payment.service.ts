@@ -196,6 +196,20 @@ export class PaymentService {
       throw new BadRequestException('Payment is already confirmed');
     }
 
+    // Preparar metadata con información del usuario que confirmó
+    const existingMetadata = (existingPayment.metadata as Record<string, any>) || {};
+    const updatedMetadata: Record<string, any> = {
+      ...existingMetadata,
+      confirmedBy: confirmPaymentDto.confirmedBy
+        ? {
+            userId: confirmPaymentDto.confirmedBy.userId,
+            name: confirmPaymentDto.confirmedBy.name,
+            email: confirmPaymentDto.confirmedBy.email,
+            confirmedAt: new Date().toISOString(),
+          }
+        : existingMetadata.confirmedBy,
+    };
+
     const updatedPayment = await this.paymentRepository.update(id, {
       status: 'completed',
       transactionId: confirmPaymentDto.transactionId,
@@ -203,6 +217,7 @@ export class PaymentService {
       notes: confirmPaymentDto.notes || existingPayment.notes,
       confirmedAt: new Date(),
       paymentDate: new Date(),
+      metadata: updatedMetadata,
     });
 
     if (!updatedPayment) {
@@ -347,6 +362,20 @@ export class PaymentService {
       );
     }
 
+    // Preparar metadata con información del usuario que validó/confirmó
+    const existingMetadata = (existingPayment.metadata as Record<string, any>) || {};
+    const updatedMetadata: Record<string, any> = {
+      ...existingMetadata,
+      confirmedBy: validateProofDto.confirmedBy
+        ? {
+            userId: validateProofDto.confirmedBy.userId,
+            name: validateProofDto.confirmedBy.name,
+            email: validateProofDto.confirmedBy.email,
+            confirmedAt: new Date().toISOString(),
+          }
+        : existingMetadata.confirmedBy,
+    };
+
     if (validateProofDto.isValid) {
       // If valid, confirm the payment
       const updatedPayment = await this.paymentRepository.update(id, {
@@ -355,6 +384,7 @@ export class PaymentService {
         notes: validateProofDto.notes || existingPayment.notes,
         confirmedAt: new Date(),
         paymentDate: new Date(),
+        metadata: updatedMetadata,
       });
 
       if (!updatedPayment) {
@@ -367,6 +397,7 @@ export class PaymentService {
       const updatedPayment = await this.paymentRepository.update(id, {
         status: 'failed',
         notes: validateProofDto.notes || existingPayment.notes,
+        metadata: updatedMetadata,
       });
 
       if (!updatedPayment) {
