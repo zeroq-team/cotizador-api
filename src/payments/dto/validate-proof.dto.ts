@@ -1,5 +1,22 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsNumber, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class ConfirmedByDto {
+  @ApiPropertyOptional({ description: 'User ID who confirmed the payment' })
+  @IsOptional()
+  @IsNumber()
+  userId?: number;
+
+  @ApiPropertyOptional({ description: 'User name who confirmed the payment' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'User email who confirmed the payment' })
+  @IsOptional()
+  @IsString()
+  email?: string;
+}
 
 export class ValidateProofDto {
   @ApiProperty({ description: 'Whether the proof is valid' })
@@ -15,5 +32,10 @@ export class ValidateProofDto {
   @IsOptional()
   @IsString()
   transactionId?: string;
+
+  @ApiPropertyOptional({ description: 'Information about who validated the proof', type: ConfirmedByDto })
+  @IsOptional()
+  @IsObject()
+  confirmedBy?: ConfirmedByDto;
 }
 
