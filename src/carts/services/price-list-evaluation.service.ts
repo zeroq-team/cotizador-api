@@ -160,6 +160,7 @@ export class PriceListEvaluationService {
       let currentTotal = 0;
       for (const item of items) {
         try {
+          // Intentar obtener el precio de la lista aplicada
           const { amount } = await this.getProductPrice(
             item.productId,
             bestPriceList.id,
@@ -167,12 +168,31 @@ export class PriceListEvaluationService {
           );
           currentTotal += Number(amount) * item.quantity;
         } catch (error) {
-          // Si no hay precio en esta lista, usar la lista por defecto
+          // Si no hay precio en esta lista, usar el precio de la lista por defecto
           this.logger.warn(
-            `No price found for product ${item.productId} in price list ${bestPriceList.id}, falling back to default`,
+            `No price found for product ${item.productId} in price list ${bestPriceList.id}, using default price`,
           );
-          currentTotal = totalPrice;
-          break;
+          // Buscar el precio en la lista por defecto
+          try {
+            const { amount } = await this.getProductPrice(
+              item.productId,
+              defaultPriceList.id,
+              organizationId,
+            );
+            currentTotal += Number(amount) * item.quantity;
+          } catch (fallbackError) {
+            // Si tampoco hay precio por defecto, mantener el precio actual del item
+            this.logger.error(
+              `Could not get price for product ${item.productId} in any price list`,
+            );
+            // Usar el precio que ya está en itemsWithDefaultPrices
+            const defaultItem = itemsWithDefaultPrices.find(
+              (i) => i.productId === item.productId,
+            );
+            if (defaultItem) {
+              currentTotal += Number(defaultItem.price) * item.quantity;
+            }
+          }
         }
       }
       lowestTotalPrice = currentTotal;
@@ -181,12 +201,21 @@ export class PriceListEvaluationService {
     // Paso 5: Actualizar precios con la mejor lista seleccionada
     if (bestPriceList.id !== defaultPriceList.id) {
       for (const item of itemsWithDefaultPrices) {
-        const { amount } = await this.getProductPrice(
-          item.productId,
-          bestPriceList.id,
-          organizationId,
-        );
-        item.price = amount;
+        try {
+          // Intentar obtener el precio de la lista aplicada
+          const { amount } = await this.getProductPrice(
+            item.productId,
+            bestPriceList.id,
+            organizationId,
+          );
+          item.price = amount;
+        } catch (error) {
+          // Si no se encuentra el precio en la lista aplicada, usar el precio de la lista por defecto
+          this.logger.warn(
+            `Price not found for product ${item.productId} in price list ${bestPriceList.id}, using default price`,
+          );
+          // El precio ya está en item.price desde itemsWithDefaultPrices, no es necesario cambiarlo
+        }
       }
 
       const savings = totalPrice - lowestTotalPrice;
@@ -879,8 +908,27 @@ export class PriceListEvaluationService {
       let lowestTotalPrice = defaultTotal;
       if (bestPriceList.id !== defaultPriceList.id) {
         let currentTotal = 0;
+        // Pre-calcular precios por defecto para cada item
+        const defaultPrices = new Map<number, string>();
         for (const item of items) {
           try {
+            const { amount } = await this.getProductPrice(
+              item.productId,
+              defaultPriceList.id,
+              organizationId,
+            );
+            defaultPrices.set(item.productId, amount);
+          } catch (error) {
+            this.logger.warn(
+              `Could not get default price for product ${item.productId}: ${error.message}`,
+            );
+          }
+        }
+
+        // Calcular total con la lista aplicada, usando precios por defecto como fallback
+        for (const item of items) {
+          try {
+            // Intentar obtener el precio de la lista aplicada
             const { amount } = await this.getProductPrice(
               item.productId,
               bestPriceList.id,
@@ -888,12 +936,20 @@ export class PriceListEvaluationService {
             );
             currentTotal += Number(amount) * item.quantity;
           } catch (error) {
-            // Si no hay precio en esta lista, usar la lista por defecto
+            // Si no hay precio en esta lista, usar el precio de la lista por defecto
             this.logger.warn(
-              `No price found for product ${item.productId} in price list ${bestPriceList.id}, falling back to default`,
+              `No price found for product ${item.productId} in price list ${bestPriceList.id}, using default price`,
             );
-            currentTotal = defaultTotal;
-            break;
+            const defaultPrice = defaultPrices.get(item.productId);
+            if (defaultPrice) {
+              currentTotal += Number(defaultPrice) * item.quantity;
+            } else {
+              this.logger.error(
+                `Could not get price for product ${item.productId} in any price list`,
+              );
+              // Si no hay precio en ninguna lista, usar 0 (no debería pasar)
+              currentTotal += 0;
+            }
           }
         }
         lowestTotalPrice = currentTotal;
