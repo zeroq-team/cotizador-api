@@ -197,7 +197,8 @@ export class PaymentService {
     }
 
     // Preparar metadata con información del usuario que confirmó
-    const existingMetadata = (existingPayment.metadata as Record<string, any>) || {};
+    const existingMetadata =
+      (existingPayment.metadata as Record<string, any>) || {};
     const updatedMetadata: Record<string, any> = {
       ...existingMetadata,
       confirmedBy: confirmPaymentDto.confirmedBy
@@ -363,7 +364,8 @@ export class PaymentService {
     }
 
     // Preparar metadata con información del usuario que validó/confirmó
-    const existingMetadata = (existingPayment.metadata as Record<string, any>) || {};
+    const existingMetadata =
+      (existingPayment.metadata as Record<string, any>) || {};
     const updatedMetadata: Record<string, any> = {
       ...existingMetadata,
       confirmedBy: validateProofDto.confirmedBy
@@ -462,7 +464,9 @@ export class PaymentService {
     const payment = await this.findById(id);
 
     // Si el pago ya está en un estado final, no hacer nada
-    if (['completed', 'cancelled', 'failed', 'refunded'].includes(payment.status)) {
+    if (
+      ['completed', 'cancelled', 'failed', 'refunded'].includes(payment.status)
+    ) {
       this.logger.log(
         `Pago ${id} ya tiene estado final: ${payment.status}. No se requiere acción.`,
       );
@@ -485,20 +489,27 @@ export class PaymentService {
       typeof payment.metadata === 'object' && payment.metadata !== null
         ? (payment.metadata as Record<string, unknown>)
         : {};
-    
-    const webpayInit = existingMetadata.webpay_init as Record<string, unknown> | undefined;
-    const webpayCommit = existingMetadata.webpay_commit as Record<string, unknown> | undefined;
-    
+
+    const webpayInit = existingMetadata.webpay_init as
+      | Record<string, unknown>
+      | undefined;
+    const webpayCommit = existingMetadata.webpay_commit as
+      | Record<string, unknown>
+      | undefined;
+
     // El token puede estar en webpay_init o webpay_commit
-    const token = (webpayInit?.token || webpayCommit?.token) as string | undefined;
+    const token = (webpayInit?.token || webpayCommit?.token) as
+      | string
+      | undefined;
     const childBuyOrder = webpayInit?.childBuyOrder as string | undefined;
-    const childCommerceCode = webpayInit?.childCommerceCode as string | undefined;
+    const childCommerceCode = webpayInit?.childCommerceCode as
+      | string
+      | undefined;
     const transactionBuyOrder = buyOrder || payment.transactionId;
-    const authorizationCode = payment.authorizationCode;
 
     // Solo intentar revertir si la transacción fue autorizada Y tenemos toda la información necesaria
     // Según la documentación de Transbank, refund necesita: token, buyOrder, commerceCode, amount
-    if (authorizationCode && token && childBuyOrder && childCommerceCode) {
+    if (token && childBuyOrder && childCommerceCode) {
       try {
         this.logger.log(
           `Intentando revertir transacción WebPay autorizada en Transbank con token: ${token}, childBuyOrder: ${childBuyOrder}, childCommerceCode: ${childCommerceCode}`,
@@ -527,15 +538,9 @@ export class PaymentService {
         );
       }
     } else {
-      if (!authorizationCode) {
-        this.logger.log(
-          `Transacción WebPay no fue autorizada (no tiene authorizationCode). No se requiere reversión en Transbank.`,
-        );
-      } else {
-        this.logger.warn(
-          `No se puede revertir la transacción: faltan datos requeridos (token: ${!!token}, childBuyOrder: ${!!childBuyOrder}, childCommerceCode: ${!!childCommerceCode})`,
-        );
-      }
+      this.logger.warn(
+        `No se puede revertir la transacción: faltan datos requeridos (token: ${!!token}, childBuyOrder: ${!!childBuyOrder}, childCommerceCode: ${!!childCommerceCode})`,
+      );
     }
 
     // Actualizar el pago como expirado/fallido
@@ -554,9 +559,9 @@ export class PaymentService {
           transbank_cancel_attempted: true,
           transbank_cancel_success: cancelResult !== null,
           transbank_cancel_error: cancelError
-            ? (cancelError instanceof Error
-                ? cancelError.message
-                : 'Error desconocido')
+            ? cancelError instanceof Error
+              ? cancelError.message
+              : 'Error desconocido'
             : null,
           transbank_cancel_response: cancelResult,
         },
