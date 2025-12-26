@@ -507,6 +507,9 @@ export class PaymentService {
       | undefined;
     const transactionBuyOrder = buyOrder || payment.transactionId;
 
+    console.log('cancelando orden de compra ')
+    console.log('token', token);
+
     // Solo intentar revertir si la transacción fue autorizada Y tenemos toda la información necesaria
     // Según la documentación de Transbank, refund necesita: token, buyOrder, commerceCode, amount
     if (token && childBuyOrder && childCommerceCode) {
@@ -525,6 +528,8 @@ export class PaymentService {
           childCommerceCode,
           amount,
         );
+
+        console.log('token de cancelacion', token);
 
         this.logger.log(
           `Transacción WebPay revertida exitosamente en Transbank`,
