@@ -57,7 +57,7 @@ export class CreateCartDto {
 
   @ApiProperty({
     description: 'ID de la organización',
-    example: '1',
+    example: '2',
     type: String,
   })
   @IsString()

@@ -3,6 +3,7 @@ import { relations } from 'drizzle-orm'
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 import { products } from './products'
 import { organizations } from './organizations'
+import { customers } from './customers'
 
 // Carts Table
 export const carts = pgTable('carts', {
@@ -26,10 +27,8 @@ export const carts = pgTable('carts', {
   priceChangeApprovedAt: timestamp('price_change_approved_at'),
   originalTotalPrice: decimal('original_total_price', { precision: 10, scale: 2 }),
   
-  // Customer information
-  fullName: text('full_name'),
-  documentType: varchar('document_type', { length: 50 }),
-  documentNumber: varchar('document_number', { length: 100 }),
+  // Customer reference
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -62,6 +61,10 @@ export const cartsRelations = relations(carts, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [carts.organizationId],
     references: [organizations.id],
+  }),
+  customer: one(customers, {
+    fields: [carts.customerId],
+    references: [customers.id],
   }),
   items: many(cartItems),
 }))

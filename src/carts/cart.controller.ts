@@ -76,6 +76,7 @@ export class CartController {
     return carts.map((cart) => ({
       id: cart.id,
       conversationId: cart.conversationId,
+      organizationId: cart.organizationId,
       totalItems: cart.totalItems,
       totalPrice: parseFloat(cart.totalPrice),
       createdAt: cart.createdAt,
@@ -152,6 +153,7 @@ export class CartController {
       items: cart.items,
       totalItems: cart.totalItems,
       totalPrice: parseFloat(cart.totalPrice),
+      customer: (cart as any).customer,
       createdAt: cart.createdAt,
       updatedAt: cart.updatedAt,
     };

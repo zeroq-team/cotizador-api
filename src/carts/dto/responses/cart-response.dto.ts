@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { CartItemResponseDto } from './cart-item-response.dto'
+import { CustomerResponseDto } from './customer-response.dto'
 
 export class AppliedPriceListDto {
   @ApiProperty({ example: 1, description: 'ID de la lista de precios aplicada' })
@@ -18,6 +19,9 @@ export class CartResponseDto {
 
   @ApiPropertyOptional({ example: 'conv_abc123xyz', description: 'ID de la conversación' })
   conversationId?: string
+
+  @ApiProperty({ example: 2, description: 'ID de la organización' })
+  organizationId: number
 
   @ApiProperty({ type: [CartItemResponseDto], description: 'Items del carrito' })
   items: CartItemResponseDto[]
@@ -51,5 +55,11 @@ export class CartResponseDto {
     description: 'Precio total que tendría el carrito con la lista de precios por defecto' 
   })
   defaultPriceListTotal?: number
+
+  @ApiPropertyOptional({ 
+    type: CustomerResponseDto, 
+    description: 'Datos del cliente asociado al carrito' 
+  })
+  customer?: CustomerResponseDto
 }
 

@@ -10,6 +10,9 @@ export class QuoteListItemDto {
   })
   conversationId?: string;
 
+  @ApiProperty({ example: 2, description: 'ID de la organización' })
+  organizationId: number;
+
   @ApiProperty({ example: 3, description: 'Total de items en el carrito' })
   totalItems: number;
 

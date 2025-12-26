@@ -9,10 +9,11 @@ import {
 import { CartRepository } from './cart.repository';
 import { CartChangelogRepository } from './cart-changelog.repository';
 import { CartSuggestionsRepository } from './cart-suggestions.repository';
+import { CustomerRepository } from './customer.repository';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
-import { Cart, CartItemRecord, NewCartItem } from '../database/schemas';
+import { Cart, CartItemRecord, NewCartItem, Customer } from '../database/schemas';
 import { CartGateway } from './cart.gateway';
 import { ProductsService } from '../products/products.service';
 import { UpdateCartSuggestionsDto } from './dto/update-cart-suggestions.dto';
@@ -32,6 +33,7 @@ export class CartService {
     private readonly cartRepository: CartRepository,
     private readonly cartChangelogRepository: CartChangelogRepository,
     private readonly cartSuggestionsRepository: CartSuggestionsRepository,
+    private readonly customerRepository: CustomerRepository,
     private readonly cartGateway: CartGateway,
     private readonly productsService: ProductsService,
     private readonly paymentService: PaymentService,
@@ -45,7 +47,7 @@ export class CartService {
 
   async createCart(
     createCartDto: CreateCartDto,
-  ): Promise<Cart & { items: CartItemRecord[] }> {
+  ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
     const {
       conversationId,
       items,
@@ -55,15 +57,31 @@ export class CartService {
       organizationId,
     } = createCartDto;
 
-    // Create new cart with conversation_id and customer info
+    // Create new cart with conversation_id
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+    
+    // Create customer if customer data is provided
+    let customerId: string | undefined;
+    if (fullName || documentType || documentNumber) {
+      const customer = await this.customerRepository.upsert(
+        parseInt(organizationId),
+        {
+          fullName,
+          documentType,
+          documentNumber,
+        },
+      );
+      customerId = customer.id;
+    }
+    
     const newCart = await this.cartRepository.create({
       conversationId,
       organizationId: parseInt(organizationId),
       totalItems: 0,
       totalPrice: '0',
-      fullName,
-      documentType,
-      documentNumber,
+      ...(customerId && { customerId }),
     });
 
     // Add items if provided
@@ -134,6 +152,7 @@ export class CartService {
   ): Promise<
     Cart & {
       items: CartItemRecord[];
+      customer?: Customer | null;
       appliedPriceList?: any;
       savings?: number;
       defaultPriceListTotal?: number;
@@ -158,6 +177,7 @@ export class CartService {
   ): Promise<
     Cart & {
       items: CartItemRecord[];
+      customer?: Customer | null;
       appliedPriceList?: any;
       savings?: number;
       defaultPriceListTotal?: number;
@@ -316,7 +336,7 @@ export class CartService {
     id: string,
     updateCartDto: UpdateCartDto,
     organizationId: string,
-  ): Promise<Cart & { items: CartItemRecord[] }> {
+  ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
     const existingCart = await this.cartRepository.findById(id);
     if (!existingCart) {
       throw new NotFoundException(`Cart with ID ${id} not found`);
@@ -397,19 +417,99 @@ export class CartService {
     const { totalItems, totalPrice } =
       await this.cartRepository.calculateCartTotals(id);
 
-    // Update cart totals and customer info if provided
+    // Get cart to find organizationId
+    const cart = await this.cartRepository.findById(id);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${id} not found`);
+    }
+
+    // Use organizationId from cart, not from parameter
+    const cartOrganizationId = cart.organizationId;
+
+    // Create or update customer if customer data is provided
+    let customerId: string | undefined;
+    if (
+      updateCartDto.fullName !== undefined ||
+      updateCartDto.documentType !== undefined ||
+      updateCartDto.documentNumber !== undefined ||
+      updateCartDto.email !== undefined ||
+      updateCartDto.phone !== undefined ||
+      updateCartDto.deliveryStreet !== undefined ||
+      updateCartDto.deliveryStreetNumber !== undefined ||
+      updateCartDto.deliveryApartment !== undefined ||
+      updateCartDto.deliveryCity !== undefined ||
+      updateCartDto.deliveryRegion !== undefined ||
+      updateCartDto.deliveryPostalCode !== undefined ||
+      updateCartDto.deliveryCountry !== undefined ||
+      updateCartDto.deliveryOffice !== undefined
+    ) {
+      // Validate that if any delivery field is provided, required fields are present
+      const hasAnyDeliveryField =
+        updateCartDto.deliveryStreet !== undefined ||
+        updateCartDto.deliveryStreetNumber !== undefined ||
+        updateCartDto.deliveryApartment !== undefined ||
+        updateCartDto.deliveryCity !== undefined ||
+        updateCartDto.deliveryRegion !== undefined ||
+        updateCartDto.deliveryPostalCode !== undefined ||
+        updateCartDto.deliveryCountry !== undefined ||
+        updateCartDto.deliveryOffice !== undefined;
+
+      if (hasAnyDeliveryField) {
+        if (!updateCartDto.deliveryStreet?.trim()) {
+          throw new BadRequestException('La calle de entrega es requerida');
+        }
+        if (!updateCartDto.deliveryStreetNumber?.trim()) {
+          throw new BadRequestException('El número de calle de entrega es requerido');
+        }
+        if (!updateCartDto.deliveryCity?.trim()) {
+          throw new BadRequestException('La ciudad de entrega es requerida');
+        }
+        if (!updateCartDto.deliveryRegion?.trim()) {
+          throw new BadRequestException('La región de entrega es requerida');
+        }
+        if (!updateCartDto.deliveryCountry?.trim()) {
+          throw new BadRequestException('El país de entrega es requerido');
+        }
+      }
+
+      // Verify organization exists before creating customer
+      try {
+        await this.organizationService.findOne(cartOrganizationId);
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          throw new BadRequestException(
+            `La organización con ID ${cartOrganizationId} no existe. No se puede crear el cliente.`
+          );
+        }
+        throw error;
+      }
+
+      const customer = await this.customerRepository.upsert(
+        cartOrganizationId,
+        {
+          fullName: updateCartDto.fullName,
+          documentType: updateCartDto.documentType,
+          documentNumber: updateCartDto.documentNumber,
+          email: updateCartDto.email,
+          phone: updateCartDto.phone,
+          deliveryStreet: updateCartDto.deliveryStreet,
+          deliveryStreetNumber: updateCartDto.deliveryStreetNumber,
+          deliveryApartment: updateCartDto.deliveryApartment,
+          deliveryCity: updateCartDto.deliveryCity,
+          deliveryRegion: updateCartDto.deliveryRegion,
+          deliveryPostalCode: updateCartDto.deliveryPostalCode,
+          deliveryCountry: updateCartDto.deliveryCountry,
+          deliveryOffice: updateCartDto.deliveryOffice,
+        },
+      );
+      customerId = customer.id;
+    }
+
+    // Update cart totals and customer reference
     const updatedCart = await this.cartRepository.update(id, {
       totalItems,
       totalPrice,
-      ...(updateCartDto.fullName !== undefined && {
-        fullName: updateCartDto.fullName,
-      }),
-      ...(updateCartDto.documentType !== undefined && {
-        documentType: updateCartDto.documentType,
-      }),
-      ...(updateCartDto.documentNumber !== undefined && {
-        documentNumber: updateCartDto.documentNumber,
-      }),
+      ...(customerId && { customerId }),
     });
 
     if (!updatedCart) {

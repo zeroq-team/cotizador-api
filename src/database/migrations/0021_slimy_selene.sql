@@ -1,0 +1,1 @@
+ALTER TABLE "carts" ALTER COLUMN "organization_id" SET DEFAULT 2;
