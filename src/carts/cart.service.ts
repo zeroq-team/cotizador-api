@@ -99,8 +99,16 @@ export class CartService {
         );
 
         if (!product) {
-          throw new NotFoundException(
+          throw new BadRequestException(
             `Product with ID ${item.productId} not found`,
+          );
+        }
+
+        const defaultPrice = product.prices.find(price => price.price_list_is_default);
+
+        if (!defaultPrice) {
+          throw new BadRequestException(
+            `Default price not found for product ${item.productId}`,
           );
         }
 
@@ -111,7 +119,7 @@ export class CartService {
           sku: product.sku,
           size: product.metadata?.size || null,
           color: product.metadata?.color || null,
-          price: product.prices[0].amount,
+          price: defaultPrice?.amount.toString(),
           quantity: Math.min(
             item.quantity,
             product.inventory?.[0]?.available || item.quantity,
@@ -576,14 +584,22 @@ export class CartService {
           );
 
           if (!product) {
-            throw new NotFoundException(
+            throw new BadRequestException(
               `Product with ID ${item.productId} not found`,
             );
           }
 
           if (!product.prices || product.prices.length === 0) {
-            throw new NotFoundException(
+            throw new BadRequestException(
               `Price not found for product ${item.productId}`,
+            );
+          }
+
+          const defaultPrice = product.prices.find(price => price.price_list_is_default);
+
+          if (!defaultPrice) {
+            throw new BadRequestException(
+              `Default price not found for product ${item.productId}`,
             );
           }
 
@@ -595,7 +611,7 @@ export class CartService {
             // size: product.?.[0]?.name || null,
             // color: product.color || null,
             description: product.description || null,
-            price: product.prices[0].amount,
+            price: defaultPrice?.amount.toString(),
             // TODO: make this well
             quantity: Math.min(
               item.quantity,
