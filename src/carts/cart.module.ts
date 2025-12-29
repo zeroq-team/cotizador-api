@@ -5,6 +5,7 @@ import { CartRepository } from './cart.repository';
 import { CartChangelogRepository } from './cart-changelog.repository';
 import { CartSuggestionsRepository } from './cart-suggestions.repository';
 import { CustomerRepository } from './customer.repository';
+import { DeliveryAddressRepository } from './delivery-address.repository';
 import { CartGateway } from './cart.gateway';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { QuotePdfGeneratorService } from './services/quote-pdf-generator.service';
@@ -24,6 +25,7 @@ import { OrganizationModule } from '../organization/organization.module';
     CartChangelogRepository,
     CartSuggestionsRepository,
     CustomerRepository,
+    DeliveryAddressRepository,
     CartGateway,
     ConversationsService,
     PriceListEvaluationService,

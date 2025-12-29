@@ -5,6 +5,7 @@ import {
   carts,
   cartItems,
   customers,
+  deliveryAddresses,
   type Cart,
   type NewCart,
   type CartItem,
@@ -83,7 +84,21 @@ export class CartRepository {
       .filter((row) => row.cart_items)
       .map((row) => row.cart_items!);
 
-    return { ...cart, items, customer };
+    // If customer exists, load delivery addresses
+    let customerWithAddresses = customer;
+    if (customer) {
+      const addresses = await this.databaseService.db
+        .select()
+        .from(deliveryAddresses)
+        .where(eq(deliveryAddresses.customerId, customer.id));
+      
+      customerWithAddresses = {
+        ...customer,
+        deliveryAddresses: addresses,
+      } as any;
+    }
+
+    return { ...cart, items, customer: customerWithAddresses };
   }
 
   async findByConversationId(conversationId: string): Promise<Cart | null> {

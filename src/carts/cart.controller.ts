@@ -33,6 +33,8 @@ import { CartService } from './cart.service';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
+import { UpdateCustomerDataDto } from './dto/update-customer-data.dto';
+import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
 import { AddPaymentProofDto } from './dto/responses/add-payment-proof.dto';
 import { CartResponseDto } from './dto/responses/cart-response.dto';
 import { QuoteListItemDto } from './dto/responses/quote-list-item.dto';
@@ -208,6 +210,86 @@ export class CartController {
       })),
       totalItems: cart.totalItems,
       totalPrice: parseFloat(cart.totalPrice),
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Actualizar datos del cliente y dirección de entrega',
+    description: 'Actualiza los datos del cliente y su dirección de entrega',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiBody({ type: UpdateCustomerDataDto })
+  @ApiResponse({ status: 200, description: 'Datos del cliente actualizados', type: CartResponseDto })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @Patch(':id/customer-data')
+  async updateCustomerData(
+    @Param('id') id: string,
+    @Body() updateCustomerDataDto: UpdateCustomerDataDto,
+  ) {
+    const cart = await this.cartService.updateCustomerData(id, updateCustomerDataDto);
+    return {
+      id: cart.id,
+      items: cart.items.map((item) => ({
+        ...item,
+        price: parseFloat(item.price.toString()),
+      })),
+      totalItems: cart.totalItems,
+      totalPrice: parseFloat(cart.totalPrice),
+      customer: cart.customer,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Actualizar dirección de entrega',
+    description: 'Actualiza una dirección de entrega específica del cliente',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiParam({ name: 'addressId', description: 'ID único de la dirección de entrega' })
+  @ApiBody({ type: UpdateDeliveryAddressDto })
+  @ApiResponse({ status: 200, description: 'Dirección actualizada', type: CartResponseDto })
+  @ApiResponse({ status: 404, description: 'Carrito o dirección no encontrada' })
+  @Patch(':id/delivery-address/:addressId')
+  async updateDeliveryAddress(
+    @Param('id') id: string,
+    @Param('addressId') addressId: string,
+    @Body() updateAddressDto: UpdateDeliveryAddressDto,
+  ) {
+    const cart = await this.cartService.updateDeliveryAddress(id, addressId, updateAddressDto);
+    return {
+      id: cart.id,
+      items: cart.items.map((item) => ({
+        ...item,
+        price: parseFloat(item.price.toString()),
+      })),
+      totalItems: cart.totalItems,
+      totalPrice: parseFloat(cart.totalPrice),
+      customer: cart.customer,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Eliminar dirección de entrega',
+    description: 'Elimina (soft delete) una dirección de entrega del cliente',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiParam({ name: 'addressId', description: 'ID único de la dirección de entrega' })
+  @ApiResponse({ status: 200, description: 'Dirección eliminada', type: CartResponseDto })
+  @ApiResponse({ status: 404, description: 'Carrito o dirección no encontrada' })
+  @Delete(':id/delivery-address/:addressId')
+  async deleteDeliveryAddress(
+    @Param('id') id: string,
+    @Param('addressId') addressId: string,
+  ) {
+    const cart = await this.cartService.deleteDeliveryAddress(id, addressId);
+    return {
+      id: cart.id,
+      items: cart.items.map((item) => ({
+        ...item,
+        price: parseFloat(item.price.toString()),
+      })),
+      totalItems: cart.totalItems,
+      totalPrice: parseFloat(cart.totalPrice),
+      customer: cart.customer,
     };
   }
 
