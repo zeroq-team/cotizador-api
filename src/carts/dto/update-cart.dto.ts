@@ -70,9 +70,10 @@ export class UpdateCartDto {
   phone?: string
 
   @ApiPropertyOptional({
-    description: 'Calle de entrega',
+    description: 'DEPRECATED: Use /cart/:id/customer-data endpoint instead. Calle de entrega',
     example: 'Av. Providencia',
     type: String,
+    deprecated: true,
   })
   @IsOptional()
   @IsString()

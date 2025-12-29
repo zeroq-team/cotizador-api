@@ -10,9 +10,12 @@ import { CartRepository } from './cart.repository';
 import { CartChangelogRepository } from './cart-changelog.repository';
 import { CartSuggestionsRepository } from './cart-suggestions.repository';
 import { CustomerRepository } from './customer.repository';
+import { DeliveryAddressRepository } from './delivery-address.repository';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
+import { UpdateCustomerDataDto } from './dto/update-customer-data.dto';
+import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
 import { Cart, CartItemRecord, NewCartItem, Customer } from '../database/schemas';
 import { CartGateway } from './cart.gateway';
 import { ProductsService } from '../products/products.service';
@@ -34,6 +37,7 @@ export class CartService {
     private readonly cartChangelogRepository: CartChangelogRepository,
     private readonly cartSuggestionsRepository: CartSuggestionsRepository,
     private readonly customerRepository: CustomerRepository,
+    private readonly deliveryAddressRepository: DeliveryAddressRepository,
     private readonly cartGateway: CartGateway,
     private readonly productsService: ProductsService,
     private readonly paymentService: PaymentService,
@@ -492,17 +496,33 @@ export class CartService {
           documentNumber: updateCartDto.documentNumber,
           email: updateCartDto.email,
           phone: updateCartDto.phone,
-          deliveryStreet: updateCartDto.deliveryStreet,
-          deliveryStreetNumber: updateCartDto.deliveryStreetNumber,
-          deliveryApartment: updateCartDto.deliveryApartment,
-          deliveryCity: updateCartDto.deliveryCity,
-          deliveryRegion: updateCartDto.deliveryRegion,
-          deliveryPostalCode: updateCartDto.deliveryPostalCode,
-          deliveryCountry: updateCartDto.deliveryCountry,
-          deliveryOffice: updateCartDto.deliveryOffice,
         },
       );
       customerId = customer.id;
+
+      // Handle delivery address if provided (for backward compatibility)
+      if (
+        updateCartDto.deliveryStreet ||
+        updateCartDto.deliveryStreetNumber ||
+        updateCartDto.deliveryApartment ||
+        updateCartDto.deliveryCity ||
+        updateCartDto.deliveryRegion ||
+        updateCartDto.deliveryPostalCode ||
+        updateCartDto.deliveryCountry ||
+        updateCartDto.deliveryOffice
+      ) {
+        await this.deliveryAddressRepository.upsert(customer.id, {
+          street: updateCartDto.deliveryStreet,
+          streetNumber: updateCartDto.deliveryStreetNumber,
+          apartment: updateCartDto.deliveryApartment,
+          city: updateCartDto.deliveryCity,
+          region: updateCartDto.deliveryRegion,
+          postalCode: updateCartDto.deliveryPostalCode,
+          country: updateCartDto.deliveryCountry,
+          office: updateCartDto.deliveryOffice,
+          isDefault: true,
+        });
+      }
     }
 
     // Update cart totals and customer reference
@@ -609,15 +629,46 @@ export class CartService {
       throw new NotFoundException(`Cart with ID ${cartId} not found`);
     }
 
-    const { selectedProductIds, customizationValues } = updateCustomizationDto;
+    const { itemCustomizations, selectedProductIds, customizationValues } = updateCustomizationDto;
 
-    // Update customization values for selected products
-    for (const item of existingCart.items) {
-      if (selectedProductIds.includes(item.id)) {
-        await this.cartRepository.updateCartItem(item.id, {
-          customizationValues,
+    // Nuevo flujo: personalización por item individual
+    if (itemCustomizations && itemCustomizations.length > 0) {
+      for (const itemCustomization of itemCustomizations) {
+        // Verificar que el item pertenece al carrito
+        const itemExists = existingCart.items.some(
+          (item) => item.id === itemCustomization.itemId,
+        );
+        
+        if (!itemExists) {
+          this.logger.warn(
+            `Item ${itemCustomization.itemId} not found in cart ${cartId}`,
+          );
+          continue;
+        }
+
+        await this.cartRepository.updateCartItem(itemCustomization.itemId, {
+          customizationValues: itemCustomization.customizationValues,
         });
       }
+    }
+    // Compatibilidad con versión anterior (deprecated)
+    else if (selectedProductIds && customizationValues) {
+      this.logger.warn(
+        'Using deprecated customization format. Please migrate to itemCustomizations.',
+      );
+      
+      // Update customization values for selected products
+      for (const item of existingCart.items) {
+        if (selectedProductIds.includes(item.id)) {
+          await this.cartRepository.updateCartItem(item.id, {
+            customizationValues,
+          });
+        }
+      }
+    } else {
+      throw new BadRequestException(
+        'Either itemCustomizations or (selectedProductIds and customizationValues) must be provided',
+      );
     }
 
     // Get updated cart
@@ -630,6 +681,171 @@ export class CartService {
     this.cartGateway.emitCartUpdated(cartId, updatedCart);
 
     return updatedCart;
+  }
+
+  /**
+   * Actualiza los datos del cliente y dirección de entrega
+   */
+  async updateCustomerData(
+    cartId: string,
+    updateCustomerDataDto: UpdateCustomerDataDto,
+  ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
+    const existingCart = await this.cartRepository.findByIdWithItems(cartId);
+    if (!existingCart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    const cartOrganizationId = existingCart.organizationId;
+
+    // Update or create customer
+    let customerId: string | undefined;
+    if (
+      updateCustomerDataDto.fullName ||
+      updateCustomerDataDto.documentType ||
+      updateCustomerDataDto.documentNumber ||
+      updateCustomerDataDto.email ||
+      updateCustomerDataDto.phone
+    ) {
+      try {
+        const customer = await this.customerRepository.upsert(
+          cartOrganizationId,
+          {
+            fullName: updateCustomerDataDto.fullName,
+            documentType: updateCustomerDataDto.documentType,
+            documentNumber: updateCustomerDataDto.documentNumber,
+            email: updateCustomerDataDto.email,
+            phone: updateCustomerDataDto.phone,
+          },
+        );
+        customerId = customer.id;
+
+        // Update or create delivery address if provided
+        if (updateCustomerDataDto.deliveryAddress) {
+          await this.deliveryAddressRepository.upsert(customer.id, {
+            street: updateCustomerDataDto.deliveryAddress.street,
+            streetNumber: updateCustomerDataDto.deliveryAddress.streetNumber,
+            apartment: updateCustomerDataDto.deliveryAddress.apartment,
+            city: updateCustomerDataDto.deliveryAddress.city,
+            region: updateCustomerDataDto.deliveryAddress.region,
+            postalCode: updateCustomerDataDto.deliveryAddress.postalCode,
+            country: updateCustomerDataDto.deliveryAddress.country,
+            office: updateCustomerDataDto.deliveryAddress.office,
+            isDefault: updateCustomerDataDto.deliveryAddress.isDefault ?? true,
+          });
+        }
+      } catch (error: any) {
+        this.logger.error(`Error updating customer data: ${error.message}`, error.stack);
+        if (error.message?.includes('organization')) {
+          throw new BadRequestException(
+            `La organización con ID ${cartOrganizationId} no existe. No se puede crear el cliente.`
+          );
+        }
+        throw error;
+      }
+    }
+
+    // Update cart with customer reference
+    if (customerId) {
+      await this.cartRepository.update(cartId, {
+        customerId,
+      });
+    }
+
+    // Return updated cart with items and customer
+    const cartWithItems = await this.cartRepository.findByIdWithItems(cartId);
+    if (!cartWithItems) {
+      throw new BadRequestException('Failed to retrieve updated cart');
+    }
+
+    // Emit real-time event
+    this.cartGateway.emitCartUpdated(cartId, cartWithItems);
+
+    return cartWithItems;
+  }
+
+  /**
+   * Actualiza una dirección de entrega específica
+   */
+  async updateDeliveryAddress(
+    cartId: string,
+    addressId: string,
+    updateAddressDto: {
+      street?: string;
+      streetNumber?: string;
+      apartment?: string;
+      city?: string;
+      region?: string;
+      postalCode?: string;
+      country?: string;
+      office?: string;
+      isDefault?: boolean;
+    },
+  ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
+    const existingCart = await this.cartRepository.findByIdWithItems(cartId);
+    if (!existingCart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    if (!existingCart.customerId) {
+      throw new BadRequestException('Cart does not have a customer associated');
+    }
+
+    // Verify address belongs to customer
+    const address = await this.deliveryAddressRepository.findById(addressId);
+    if (!address || address.customerId !== existingCart.customerId) {
+      throw new NotFoundException(`Delivery address with ID ${addressId} not found`);
+    }
+
+    // Update address
+    await this.deliveryAddressRepository.update(addressId, updateAddressDto);
+
+    // Return updated cart
+    const cartWithItems = await this.cartRepository.findByIdWithItems(cartId);
+    if (!cartWithItems) {
+      throw new BadRequestException('Failed to retrieve updated cart');
+    }
+
+    // Emit real-time event
+    this.cartGateway.emitCartUpdated(cartId, cartWithItems);
+
+    return cartWithItems;
+  }
+
+  /**
+   * Elimina (soft delete) una dirección de entrega
+   */
+  async deleteDeliveryAddress(
+    cartId: string,
+    addressId: string,
+  ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
+    const existingCart = await this.cartRepository.findByIdWithItems(cartId);
+    if (!existingCart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    if (!existingCart.customerId) {
+      throw new BadRequestException('Cart does not have a customer associated');
+    }
+
+    // Verify address belongs to customer
+    const address = await this.deliveryAddressRepository.findById(addressId);
+    if (!address || address.customerId !== existingCart.customerId) {
+      throw new NotFoundException(`Delivery address with ID ${addressId} not found`);
+    }
+
+    // Soft delete address
+    await this.deliveryAddressRepository.delete(addressId);
+
+    // Return updated cart
+    const cartWithItems = await this.cartRepository.findByIdWithItems(cartId);
+    if (!cartWithItems) {
+      throw new BadRequestException('Failed to retrieve updated cart');
+    }
+
+    // Emit real-time event
+    this.cartGateway.emitCartUpdated(cartId, cartWithItems);
+
+    return cartWithItems;
   }
 
   /**

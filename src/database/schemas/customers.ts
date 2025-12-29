@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, bigint, timestamp, index } from 'drizzle-
 import { relations, sql } from 'drizzle-orm'
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 import { organizations } from './organizations'
+import { deliveryAddresses } from './delivery-addresses'
 
 // Customers Table
 export const customers = pgTable('customers', {
@@ -15,16 +16,6 @@ export const customers = pgTable('customers', {
   email: varchar('email', { length: 255 }),
   phone: varchar('phone', { length: 50 }),
   
-  // Delivery address information
-  deliveryStreet: text('delivery_street'),
-  deliveryStreetNumber: varchar('delivery_street_number', { length: 50 }),
-  deliveryApartment: varchar('delivery_apartment', { length: 50 }),
-  deliveryCity: varchar('delivery_city', { length: 100 }),
-  deliveryRegion: varchar('delivery_region', { length: 100 }),
-  deliveryPostalCode: varchar('delivery_postal_code', { length: 20 }),
-  deliveryCountry: varchar('delivery_country', { length: 100 }),
-  deliveryOffice: varchar('delivery_office', { length: 100 }),
-  
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
@@ -35,11 +26,12 @@ export const customers = pgTable('customers', {
 }))
 
 // Define relations
-export const customersRelations = relations(customers, ({ one }) => ({
+export const customersRelations = relations(customers, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [customers.organizationId],
     references: [organizations.id],
   }),
+  deliveryAddresses: many(deliveryAddresses),
 }))
 
 // Zod schemas for validation

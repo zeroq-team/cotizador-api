@@ -50,14 +50,6 @@ export class CustomerRepository {
       documentNumber: data.documentNumber ?? null,
       email: data.email ?? null,
       phone: data.phone ?? null,
-      deliveryStreet: data.deliveryStreet ?? null,
-      deliveryStreetNumber: data.deliveryStreetNumber ?? null,
-      deliveryApartment: data.deliveryApartment ?? null,
-      deliveryCity: data.deliveryCity ?? null,
-      deliveryRegion: data.deliveryRegion ?? null,
-      deliveryPostalCode: data.deliveryPostalCode ?? null,
-      deliveryCountry: data.deliveryCountry ?? null,
-      deliveryOffice: data.deliveryOffice ?? null,
     };
 
     try {
@@ -96,14 +88,6 @@ export class CustomerRepository {
     if (data.documentNumber !== undefined) cleanData.documentNumber = data.documentNumber ?? null;
     if (data.email !== undefined) cleanData.email = data.email ?? null;
     if (data.phone !== undefined) cleanData.phone = data.phone ?? null;
-    if (data.deliveryStreet !== undefined) cleanData.deliveryStreet = data.deliveryStreet ?? null;
-    if (data.deliveryStreetNumber !== undefined) cleanData.deliveryStreetNumber = data.deliveryStreetNumber ?? null;
-    if (data.deliveryApartment !== undefined) cleanData.deliveryApartment = data.deliveryApartment ?? null;
-    if (data.deliveryCity !== undefined) cleanData.deliveryCity = data.deliveryCity ?? null;
-    if (data.deliveryRegion !== undefined) cleanData.deliveryRegion = data.deliveryRegion ?? null;
-    if (data.deliveryPostalCode !== undefined) cleanData.deliveryPostalCode = data.deliveryPostalCode ?? null;
-    if (data.deliveryCountry !== undefined) cleanData.deliveryCountry = data.deliveryCountry ?? null;
-    if (data.deliveryOffice !== undefined) cleanData.deliveryOffice = data.deliveryOffice ?? null;
 
     const result = await this.databaseService.db
       .update(customers)
@@ -125,14 +109,6 @@ export class CustomerRepository {
       documentNumber?: string;
       email?: string;
       phone?: string;
-      deliveryStreet?: string;
-      deliveryStreetNumber?: string;
-      deliveryApartment?: string;
-      deliveryCity?: string;
-      deliveryRegion?: string;
-      deliveryPostalCode?: string;
-      deliveryCountry?: string;
-      deliveryOffice?: string;
     },
   ): Promise<Customer> {
     // Try to find existing customer by document
@@ -149,14 +125,6 @@ export class CustomerRepository {
           fullName: customerData.fullName,
           email: customerData.email,
           phone: customerData.phone,
-          deliveryStreet: customerData.deliveryStreet,
-          deliveryStreetNumber: customerData.deliveryStreetNumber,
-          deliveryApartment: customerData.deliveryApartment,
-          deliveryCity: customerData.deliveryCity,
-          deliveryRegion: customerData.deliveryRegion,
-          deliveryPostalCode: customerData.deliveryPostalCode,
-          deliveryCountry: customerData.deliveryCountry,
-          deliveryOffice: customerData.deliveryOffice,
         });
         return updated || existing;
       }
@@ -170,14 +138,6 @@ export class CustomerRepository {
       documentNumber: customerData.documentNumber ?? null,
       email: customerData.email ?? null,
       phone: customerData.phone ?? null,
-      deliveryStreet: customerData.deliveryStreet ?? null,
-      deliveryStreetNumber: customerData.deliveryStreetNumber ?? null,
-      deliveryApartment: customerData.deliveryApartment ?? null,
-      deliveryCity: customerData.deliveryCity ?? null,
-      deliveryRegion: customerData.deliveryRegion ?? null,
-      deliveryPostalCode: customerData.deliveryPostalCode ?? null,
-      deliveryCountry: customerData.deliveryCountry ?? null,
-      deliveryOffice: customerData.deliveryOffice ?? null,
     });
   }
 }
