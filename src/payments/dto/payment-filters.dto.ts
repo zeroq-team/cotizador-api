@@ -7,22 +7,20 @@ export class PaymentFiltersDto {
   @ApiPropertyOptional({
     enum: [
       'pending',
-      'processing',
+      'waiting_for_confirmation',
       'completed',
       'failed',
       'cancelled',
-      'refunded',
     ],
     description: 'Filter by payment status',
   })
   @IsOptional()
   @IsEnum([
     'pending',
-    'processing',
+    'waiting_for_confirmation',
     'completed',
     'failed',
     'cancelled',
-    'refunded',
   ])
   status?: PaymentStatus;
 
