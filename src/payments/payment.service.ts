@@ -193,9 +193,9 @@ export class PaymentService {
       throw new NotFoundException(`Payment with ID ${id} not found`);
     }
 
-    // Update status to processing if it was pending
+    // Update status to waiting_for_confirmation if it was pending
     if (existingPayment.status === 'pending') {
-      return await this.updateStatus(id, 'processing');
+      return await this.updateStatus(id, 'waiting_for_confirmation');
     }
 
     return updatedPayment;
@@ -270,7 +270,7 @@ export class PaymentService {
     }
 
     const updatedPayment = await this.paymentRepository.update(id, {
-      status: 'refunded',
+      status: 'cancelled',
       notes: reason || existingPayment.notes,
     });
 
@@ -366,7 +366,7 @@ export class PaymentService {
       organizationId: cart.organizationId,
       paymentType: createProofPaymentDto.paymentType,
       amount: createProofPaymentDto.amount.toString(),
-      status: 'processing', // Proof-based payments start in processing status
+      status: 'waiting_for_confirmation', // Proof-based payments start in waiting_for_confirmation status
       proofUrl: proofUrl,
       externalReference: createProofPaymentDto.externalReference,
       notes: createProofPaymentDto.notes,
@@ -442,12 +442,11 @@ export class PaymentService {
     newStatus: PaymentStatus,
   ): void {
     const validTransitions: Record<PaymentStatus, PaymentStatus[]> = {
-      pending: ['processing', 'cancelled', 'failed'],
-      processing: ['completed', 'failed', 'cancelled'],
-      completed: ['refunded'],
+      pending: ['waiting_for_confirmation', 'cancelled', 'failed'],
+      waiting_for_confirmation: ['completed', 'failed', 'cancelled'],
+      completed: [],
       failed: ['pending', 'cancelled'],
       cancelled: ['pending'],
-      refunded: [],
     };
 
     const allowedStatuses = validTransitions[currentStatus] || [];
@@ -492,7 +491,7 @@ export class PaymentService {
 
     // Si el pago ya está en un estado final, no hacer nada
     if (
-      ['completed', 'cancelled', 'failed', 'refunded'].includes(payment.status)
+      ['completed', 'cancelled', 'failed'].includes(payment.status)
     ) {
       this.logger.log(
         `Pago ${id} ya tiene estado final: ${payment.status}. No se requiere acción.`,

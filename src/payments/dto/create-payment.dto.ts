@@ -29,21 +29,19 @@ export class CreatePaymentDto {
     description: 'Payment status',
     enum: [
       'pending',
-      'processing',
+      'waiting_for_confirmation',
       'completed',
       'failed',
       'cancelled',
-      'refunded',
     ],
   })
   @IsOptional()
   @IsEnum([
     'pending',
-    'processing',
+    'waiting_for_confirmation',
     'completed',
     'failed',
     'cancelled',
-    'refunded',
   ])
   status?: PaymentStatus;
 

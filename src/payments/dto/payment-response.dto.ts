@@ -15,7 +15,7 @@ export class PaymentResponseDto {
   amount: string;
 
   @ApiProperty({
-    enum: ['pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded'],
+    enum: ['pending', 'waiting_for_confirmation', 'completed', 'failed', 'cancelled'],
     example: 'pending',
     description: 'Estado del pago',
   })
