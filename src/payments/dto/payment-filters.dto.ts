@@ -42,6 +42,14 @@ export class PaymentFiltersDto {
   cartId?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter by organization ID',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  organizationId?: number;
+
+  @ApiPropertyOptional({
     description: 'Filter by quotation/conversation ID',
   })
   @IsOptional()

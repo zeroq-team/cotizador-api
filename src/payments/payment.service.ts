@@ -14,10 +14,12 @@ import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { CreateProofPaymentDto } from './dto/create-proof-payment.dto';
 import { ValidateProofDto } from './dto/validate-proof.dto';
 import { PaymentFiltersDto } from './dto/payment-filters.dto';
-import { Payment, PaymentStatus } from '../database/schemas';
+import { Payment, PaymentStatus, carts } from '../database/schemas';
 import { S3Service } from '../s3/s3.service';
 import { PdfGeneratorService } from './services/pdf-generator.service';
 import { WebpayService } from '../webpay/webpay.service';
+import { DatabaseService } from '../database/database.service';
+import { eq } from 'drizzle-orm';
 
 @Injectable()
 export class PaymentService {
@@ -29,12 +31,25 @@ export class PaymentService {
     private pdfGeneratorService: PdfGeneratorService,
     @Inject(forwardRef(() => WebpayService))
     private webpayService: WebpayService,
+    private databaseService: DatabaseService,
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
+    // Obtener el organizationId del cart
+    const [cart] = await this.databaseService.db
+      .select({ organizationId: carts.organizationId })
+      .from(carts)
+      .where(eq(carts.id, createPaymentDto.cartId))
+      .limit(1);
+
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${createPaymentDto.cartId} not found`);
+    }
+
     // Convertir fechas de string a Date si están presentes
     const paymentData: any = {
       ...createPaymentDto,
+      organizationId: cart.organizationId,
       amount: createPaymentDto.amount.toString(),
       status: createPaymentDto.status || 'pending',
     };
@@ -335,8 +350,20 @@ export class PaymentService {
       throw new BadRequestException('Proof URL or file is required');
     }
 
+    // Obtener el organizationId del cart
+    const [cart] = await this.databaseService.db
+      .select({ organizationId: carts.organizationId })
+      .from(carts)
+      .where(eq(carts.id, createProofPaymentDto.cartId))
+      .limit(1);
+
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${createProofPaymentDto.cartId} not found`);
+    }
+
     const payment = await this.paymentRepository.create({
       cartId: createProofPaymentDto.cartId,
+      organizationId: cart.organizationId,
       paymentType: createProofPaymentDto.paymentType,
       amount: createProofPaymentDto.amount.toString(),
       status: 'processing', // Proof-based payments start in processing status

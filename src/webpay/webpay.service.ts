@@ -378,7 +378,7 @@ export class WebpayService {
         }
 
         // Validar que el pago esté en un estado que permita confirmación
-        const finalStates: PaymentStatus[] = ['completed', 'cancelled', 'refunded', 'failed'];
+        const finalStates: PaymentStatus[] = ['completed', 'cancelled', 'failed'];
         if (finalStates.includes(payment.status)) {
           this.logger.warn(
             `El pago ${payment.id} ya está en estado final: ${payment.status}. No se puede actualizar.`,

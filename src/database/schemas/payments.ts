@@ -7,19 +7,21 @@ import {
   varchar,
   jsonb,
   pgEnum,
+  bigint,
+  index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { carts } from './carts';
+import { organizations } from './organizations';
 
 // Payment Status Enum
 export const paymentStatusEnum = pgEnum('payment_status', [
   'pending',
-  'processing',
   'completed',
   'failed',
+  'waiting_for_confirmation',
   'cancelled',
-  'refunded',
 ]);
 
 // Payment Type Enum
@@ -36,6 +38,9 @@ export const payments = pgTable('payments', {
   cartId: uuid('cart_id')
     .notNull()
     .references(() => carts.id, { onDelete: 'cascade' }),
+  organizationId: bigint('organization_id', { mode: 'number' })
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
   status: paymentStatusEnum('status').notNull().default('pending'),
   paymentType: paymentTypeEnum('payment_type').notNull(),
@@ -59,13 +64,19 @@ export const payments = pgTable('payments', {
   
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (table) => ({
+  organizationIdIdx: index('idx_payments_organization_id').on(table.organizationId),
+}));
 
 // Define relations
 export const paymentsRelations = relations(payments, ({ one }) => ({
   cart: one(carts, {
     fields: [payments.cartId],
     references: [carts.id],
+  }),
+  organization: one(organizations, {
+    fields: [payments.organizationId],
+    references: [organizations.id],
   }),
 }));
 
