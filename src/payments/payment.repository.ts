@@ -58,6 +58,14 @@ export class PaymentRepository {
       .orderBy(desc(payments.createdAt));
   }
 
+  async findByOrganizationId(organizationId: number): Promise<Payment[]> {
+    return await this.databaseService.db
+      .select()
+      .from(payments)
+      .where(eq(payments.organizationId, organizationId))
+      .orderBy(desc(payments.createdAt));
+  }
+
   async findAll(): Promise<Payment[]> {
     return await this.databaseService.db
       .select()
@@ -85,6 +93,10 @@ export class PaymentRepository {
 
     if (filters.cartId) {
       conditions.push(eq(payments.cartId, filters.cartId));
+    }
+
+    if (filters.organizationId) {
+      conditions.push(eq(payments.organizationId, filters.organizationId));
     }
 
     if (filters.startDate) {
@@ -141,6 +153,7 @@ export class PaymentRepository {
         .select({
           id: payments.id,
           cartId: payments.cartId,
+          organizationId: payments.organizationId,
           amount: payments.amount,
           status: payments.status,
           paymentType: payments.paymentType,
@@ -320,7 +333,7 @@ export class PaymentRepository {
 
         if (payment.status === 'completed') {
           acc.totalPaid += amount;
-        } else if (payment.status === 'pending' || payment.status === 'processing') {
+        } else if (payment.status === 'pending' || payment.status === 'waiting_for_confirmation') {
           acc.totalPending += amount;
         } else if (payment.status === 'failed') {
           acc.totalFailed += amount;

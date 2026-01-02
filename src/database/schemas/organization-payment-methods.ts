@@ -2,6 +2,7 @@ import { pgTable, bigserial, bigint, boolean, timestamp, index, varchar } from '
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { organizations } from './organizations';
+import { payments } from './payments';
 
 export const organizationPaymentMethods = pgTable(
   'organization_payment_methods',
@@ -40,11 +41,12 @@ export const organizationPaymentMethodsRelations = relations(
   })
 );
 
-export const organizationsRelations = relations(organizations, ({ one }) => ({
+export const organizationsRelations = relations(organizations, ({ one, many }) => ({
   paymentMethods: one(organizationPaymentMethods, {
     fields: [organizations.id],
     references: [organizationPaymentMethods.organizationId],
   }),
+  payments: many(payments),
 }));
 
 // Zod schemas for validation
