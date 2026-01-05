@@ -14,7 +14,7 @@ import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { CreateProofPaymentDto } from './dto/create-proof-payment.dto';
 import { ValidateProofDto } from './dto/validate-proof.dto';
 import { PaymentFiltersDto } from './dto/payment-filters.dto';
-import { Payment, PaymentStatus, carts } from '../database/schemas';
+import { Payment, PaymentStatus, carts, paymentStatusEnum } from '../database/schemas';
 import { S3Service } from '../s3/s3.service';
 import { PdfGeneratorService } from './services/pdf-generator.service';
 import { WebpayService } from '../webpay/webpay.service';
@@ -34,7 +34,8 @@ export class PaymentService {
     private databaseService: DatabaseService,
   ) {}
 
-  async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
+  async create(createPaymentDto: CreatePaymentDto, organizationId: string): Promise<Payment> {
+    const orgId = parseInt(organizationId, 10);
     // Obtener el organizationId del cart
     const [cart] = await this.databaseService.db
       .select({ organizationId: carts.organizationId })
@@ -46,10 +47,15 @@ export class PaymentService {
       throw new NotFoundException(`Cart with ID ${createPaymentDto.cartId} not found`);
     }
 
+    // Validate that cart belongs to organization
+    if (cart.organizationId !== orgId) {
+      throw new BadRequestException(`Cart with ID ${createPaymentDto.cartId} does not belong to the specified organization`);
+    }
+
     // Convertir fechas de string a Date si están presentes
     const paymentData: any = {
       ...createPaymentDto,
-      organizationId: cart.organizationId,
+      organizationId: orgId,
       amount: createPaymentDto.amount.toString(),
       status: createPaymentDto.status || 'pending',
     };
@@ -75,35 +81,108 @@ export class PaymentService {
 
   async findAllPaginated(
     filters: PaymentFiltersDto,
+    organizationId: string,
   ): Promise<PaginatedResult<Payment>> {
+    const orgId = parseInt(organizationId, 10);
+    // Always filter by organizationId from header
+    filters.organizationId = orgId;
     return await this.paymentRepository.findAllPaginated(filters);
   }
 
-  async getGlobalStats() {
-    return await this.paymentRepository.getGlobalStats();
+  async getGlobalStats(organizationId: string) {
+    const orgId = parseInt(organizationId, 10);
+    // Filter stats by organization
+    const payments = await this.paymentRepository.findByOrganizationId(orgId);
+    
+    // Group by status
+    const statsMap = new Map<string, { quantity: number; amount: number }>();
+    
+    // Initialize all possible statuses from enum
+    paymentStatusEnum.enumValues.forEach(status => {
+      statsMap.set(status, { quantity: 0, amount: 0 });
+    });
+
+    // Aggregate data
+    payments.forEach(payment => {
+      const amount = parseFloat(payment.amount);
+      const current = statsMap.get(payment.status) || { quantity: 0, amount: 0 };
+      
+      statsMap.set(payment.status, {
+        quantity: current.quantity + 1,
+        amount: current.amount + amount,
+      });
+    });
+
+    // Convert map to array
+    return Array.from(statsMap.entries()).map(([status, data]) => ({
+      status,
+      quantity: data.quantity,
+      amount: data.amount,
+    }));
   }
 
-  async findById(id: string): Promise<Payment> {
+  async findById(id: string, organizationId: string): Promise<Payment> {
+    const orgId = parseInt(organizationId, 10);
     const payment = await this.paymentRepository.findById(id);
     if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+    // Validate that payment belongs to organization
+    if (payment.organizationId !== orgId) {
       throw new NotFoundException(`Payment with ID ${id} not found`);
     }
     return payment;
   }
 
-  async findByCartId(cartId: string): Promise<Payment[]> {
-    return await this.paymentRepository.findByCartId(cartId);
+  async findByCartId(cartId: string, organizationId: string): Promise<Payment[]> {
+    const orgId = parseInt(organizationId, 10);
+    // Verify cart belongs to organization
+    const [cart] = await this.databaseService.db
+      .select({ organizationId: carts.organizationId })
+      .from(carts)
+      .where(eq(carts.id, cartId))
+      .limit(1);
+
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    if (cart.organizationId !== orgId) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    const payments = await this.paymentRepository.findByCartId(cartId);
+    // Filter by organizationId as additional security
+    return payments.filter(p => p.organizationId === orgId);
   }
 
   /**
    * Busca un pago pendiente para un carrito específico
    * Retorna el pago si existe uno en estado 'pending', null si no existe
    */
-  async findPendingPaymentByCartId(cartId: string): Promise<Payment | null> {
+  async findPendingPaymentByCartId(cartId: string, organizationId: string): Promise<Payment | null> {
+    const orgId = parseInt(organizationId, 10);
+    // Verify cart belongs to organization
+    const [cart] = await this.databaseService.db
+      .select({ organizationId: carts.organizationId })
+      .from(carts)
+      .where(eq(carts.id, cartId))
+      .limit(1);
+
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    if (cart.organizationId !== orgId) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
     const payments = await this.paymentRepository.findByCartId(cartId);
+    // Filter by organizationId as additional security
+    const orgPayments = payments.filter(p => p.organizationId === orgId);
 
     // Buscar el primer pago en estado 'pending'
-    const pendingPayment = payments.find(
+    const pendingPayment = orgPayments.find(
       (payment) => payment.status === 'pending',
     );
 
@@ -113,8 +192,8 @@ export class PaymentService {
   /**
    * Alias para findPendingPaymentByCartId (para compatibilidad con el controller)
    */
-  async findPendingByCartId(cartId: string): Promise<Payment | null> {
-    return this.findPendingPaymentByCartId(cartId);
+  async findPendingByCartId(cartId: string, organizationId: string): Promise<Payment | null> {
+    return this.findPendingPaymentByCartId(cartId, organizationId);
   }
 
   async findByTransactionId(transactionId: string): Promise<Payment | null> {
@@ -130,8 +209,9 @@ export class PaymentService {
   async update(
     id: string,
     updatePaymentDto: UpdatePaymentDto,
+    organizationId: string,
   ): Promise<Payment> {
-    const existingPayment = await this.findById(id);
+    const existingPayment = await this.findById(id, organizationId);
 
     // Preparar datos con conversión de fechas
     const updateData: any = {
@@ -159,8 +239,8 @@ export class PaymentService {
     return updatedPayment;
   }
 
-  async updateStatus(id: string, status: PaymentStatus): Promise<Payment> {
-    const existingPayment = await this.findById(id);
+  async updateStatus(id: string, status: PaymentStatus, organizationId: string): Promise<Payment> {
+    const existingPayment = await this.findById(id, organizationId);
 
     // Validate status transition
     this.validateStatusTransition(existingPayment.status, status);
@@ -180,8 +260,9 @@ export class PaymentService {
   async uploadProof(
     id: string,
     uploadProofDto: UploadProofDto,
+    organizationId: string,
   ): Promise<Payment> {
-    const existingPayment = await this.findById(id);
+    const existingPayment = await this.findById(id, organizationId);
 
     const updatedPayment = await this.paymentRepository.uploadProof(
       id,
@@ -195,7 +276,7 @@ export class PaymentService {
 
     // Update status to waiting_for_confirmation if it was pending
     if (existingPayment.status === 'pending') {
-      return await this.updateStatus(id, 'waiting_for_confirmation');
+      return await this.updateStatus(id, 'waiting_for_confirmation', organizationId);
     }
 
     return updatedPayment;
@@ -204,8 +285,9 @@ export class PaymentService {
   async confirmPayment(
     id: string,
     confirmPaymentDto: ConfirmPaymentDto,
+    organizationId: string,
   ): Promise<Payment> {
-    const existingPayment = await this.findById(id);
+    const existingPayment = await this.findById(id, organizationId);
 
     if (existingPayment.status === 'completed') {
       throw new BadRequestException('Payment is already confirmed');
@@ -243,8 +325,8 @@ export class PaymentService {
     return updatedPayment;
   }
 
-  async cancelPayment(id: string, reason?: string): Promise<Payment> {
-    const existingPayment = await this.findById(id);
+  async cancelPayment(id: string, reason: string | undefined, organizationId: string): Promise<Payment> {
+    const existingPayment = await this.findById(id, organizationId);
 
     if (existingPayment.status === 'completed') {
       throw new BadRequestException('Cannot cancel a completed payment');
@@ -262,8 +344,8 @@ export class PaymentService {
     return updatedPayment;
   }
 
-  async refundPayment(id: string, reason?: string): Promise<Payment> {
-    const existingPayment = await this.findById(id);
+  async refundPayment(id: string, reason: string | undefined, organizationId: string): Promise<Payment> {
+    const existingPayment = await this.findById(id, organizationId);
 
     if (existingPayment.status !== 'completed') {
       throw new BadRequestException('Can only refund completed payments');
@@ -281,8 +363,8 @@ export class PaymentService {
     return updatedPayment;
   }
 
-  async delete(id: string): Promise<void> {
-    const existingPayment = await this.findById(id);
+  async delete(id: string, organizationId: string): Promise<void> {
+    const existingPayment = await this.findById(id, organizationId);
 
     // Delete proof from S3 if exists
     if (existingPayment.proofUrl) {
@@ -304,8 +386,10 @@ export class PaymentService {
    */
   async createProofPayment(
     createProofPaymentDto: CreateProofPaymentDto,
-    file?: Express.Multer.File,
+    file: Express.Multer.File | undefined,
+    organizationId: string,
   ): Promise<Payment> {
+    const orgId = parseInt(organizationId, 10);
     let proofUrl = createProofPaymentDto.proofUrl;
     // If file is provided, upload to S3
     if (file) {
@@ -361,9 +445,14 @@ export class PaymentService {
       throw new NotFoundException(`Cart with ID ${createProofPaymentDto.cartId} not found`);
     }
 
+    // Validate that cart belongs to organization
+    if (cart.organizationId !== orgId) {
+      throw new BadRequestException(`Cart with ID ${createProofPaymentDto.cartId} does not belong to the specified organization`);
+    }
+
     const payment = await this.paymentRepository.create({
       cartId: createProofPaymentDto.cartId,
-      organizationId: cart.organizationId,
+      organizationId: orgId,
       paymentType: createProofPaymentDto.paymentType,
       amount: createProofPaymentDto.amount.toString(),
       status: 'waiting_for_confirmation', // Proof-based payments start in waiting_for_confirmation status
@@ -381,8 +470,9 @@ export class PaymentService {
   async validateProof(
     id: string,
     validateProofDto: ValidateProofDto,
+    organizationId: string,
   ): Promise<Payment> {
-    const existingPayment = await this.findById(id);
+    const existingPayment = await this.findById(id, organizationId);
 
     if (!existingPayment.proofUrl) {
       throw new BadRequestException(
@@ -461,8 +551,8 @@ export class PaymentService {
   /**
    * Genera un comprobante de pago en formato PDF
    */
-  async generateReceipt(id: string): Promise<Buffer> {
-    const payment = await this.findById(id);
+  async generateReceipt(id: string, organizationId: string): Promise<Buffer> {
+    const payment = await this.findById(id, organizationId);
 
     if (!payment) {
       throw new NotFoundException(`Payment with ID ${id} not found`);
@@ -477,17 +567,19 @@ export class PaymentService {
    * @param id - ID del pago
    * @param buyOrder - BuyOrder de la transacción
    * @param taskId - ID de la tarea de Trigger.dev que ejecuta el timeout (para trazabilidad)
+   * @param organizationId - ID de la organización
    */
   async handleWebpayTimeout(
     id: string,
-    buyOrder: string,
-    taskId?: string,
+    buyOrder: string | undefined,
+    taskId: string | undefined,
+    organizationId: string,
   ): Promise<Payment> {
     this.logger.log(
       `Manejando timeout de WebPay para pago ${id}, buyOrder: ${buyOrder}`,
     );
 
-    const payment = await this.findById(id);
+    const payment = await this.findById(id, organizationId);
 
     // Si el pago ya está en un estado final, no hacer nada
     if (
