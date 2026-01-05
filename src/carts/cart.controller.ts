@@ -313,7 +313,6 @@ export class CartController {
     @Body() createAddressDto: UpdateDeliveryAddressDto,
   ) {
 
-    console.log('createAddressDto', createAddressDto);
     const cart = await this.cartService.createDeliveryAddress(id, createAddressDto);
     return {
       id: cart.id,
