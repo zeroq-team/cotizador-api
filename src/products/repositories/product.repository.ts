@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
-import { products, type Product, type NewProduct, productPrices, productMedia, inventoryLevels, inventoryLocations } from '../../database/schemas';
+import { products, type Product, type NewProduct, productPrices, productMedia, inventoryLevels, inventoryLocations, priceLists } from '../../database/schemas';
 import { eq, and, inArray, desc, asc, sql, or, like, ilike } from 'drizzle-orm';
 import { ProductWithPricesAndMedia } from '../products.types';
 
@@ -24,6 +24,7 @@ export class ProductRepository {
   async findById(
     id: number,
     organizationId: number,
+    defaultPrice?: boolean,
   ): Promise<ProductWithPricesAndMedia | null> {
     // Obtener el producto base
     const productResult = await this.databaseService.db
@@ -41,7 +42,30 @@ export class ProductRepository {
     const product = productResult[0];
 
     // Obtener todos los precios relacionados
-    const pricesResult = await this.databaseService.db
+    let pricesResult = [];
+    if (defaultPrice) {
+      pricesResult = await this.databaseService.db
+        .select({
+          id: productPrices.id,
+          productId: productPrices.productId,
+          priceListId: productPrices.priceListId,
+          organizationId: productPrices.organizationId,
+          currency: productPrices.currency,
+          amount: productPrices.amount,
+          taxIncluded: productPrices.taxIncluded,
+          validFrom: productPrices.validFrom,
+          validTo: productPrices.validTo,
+          createdAt: productPrices.createdAt,
+          updatedAt: productPrices.updatedAt,
+        })
+        .from(productPrices)
+        .innerJoin(priceLists, eq(productPrices.priceListId, priceLists.id))
+        .where(
+          and(eq(productPrices.productId, id), eq(productPrices.organizationId, organizationId), eq(priceLists.isDefault, true)),
+        )
+        .orderBy(productPrices.createdAt);
+    } else {
+      pricesResult = await this.databaseService.db
       .select()
       .from(productPrices)
       .where(
@@ -51,6 +75,7 @@ export class ProductRepository {
         ),
       )
       .orderBy(productPrices.createdAt);
+    }
 
     // Obtener todos los media relacionados
     const mediaResult = await this.databaseService.db
@@ -64,6 +89,7 @@ export class ProductRepository {
       )
       .orderBy(productMedia.position, productMedia.createdAt);
 
+      console.log("pricesResult", pricesResult);
     // Mapear precios al formato esperado
     const prices = pricesResult.length > 0
       ? pricesResult.map((price) => ({

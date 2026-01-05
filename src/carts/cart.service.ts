@@ -94,6 +94,7 @@ export class CartService {
         const product = await this.productsService.getProductById(
           item.productId,
           organizationId,
+          { defaultPrice: true },
         );
 
         if (!product) {
@@ -102,11 +103,9 @@ export class CartService {
           );
         }
 
-        const defaultPrice = product.prices.find(price => price.price_list_is_default);
-
-        if (!defaultPrice) {
+        if (!product.prices || product.prices.length === 0) {
           throw new BadRequestException(
-            `Default price not found for product ${item.productId}`,
+            `default price not found for product ${item.productId}`,
           );
         }
 
@@ -117,7 +116,7 @@ export class CartService {
           sku: product.sku,
           size: product.metadata?.size || null,
           color: product.metadata?.color || null,
-          price: defaultPrice?.amount.toString(),
+          price: product.prices[0].amount.toString(),
           quantity: Math.min(
             item.quantity,
             product.inventory?.[0]?.available || item.quantity,
@@ -572,6 +571,7 @@ export class CartService {
           const product = await this.productsService.getProductById(
             item.productId,
             organizationId,
+            { defaultPrice: true },
           );
 
           if (!product) {
@@ -582,15 +582,7 @@ export class CartService {
 
           if (!product.prices || product.prices.length === 0) {
             throw new BadRequestException(
-              `Price not found for product ${item.productId}`,
-            );
-          }
-
-          const defaultPrice = product.prices.find(price => price.price_list_is_default);
-
-          if (!defaultPrice) {
-            throw new BadRequestException(
-              `Default price not found for product ${item.productId}`,
+              `default price not found for product ${item.productId}`,
             );
           }
 
@@ -602,7 +594,7 @@ export class CartService {
             // size: product.?.[0]?.name || null,
             // color: product.color || null,
             description: product.description || null,
-            price: defaultPrice?.amount.toString(),
+            price: product.prices[0].amount.toString(),
             // TODO: make this well
             quantity: Math.min(
               item.quantity,
