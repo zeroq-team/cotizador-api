@@ -41,6 +41,30 @@ export class CustomerRepository {
     return result[0] || null;
   }
 
+  async findByPhone(
+    organizationId: number,
+    phoneCode: string,
+    phoneNumber: string,
+  ): Promise<Customer | null> {
+    if (!phoneCode || !phoneNumber) {
+      return null;
+    }
+
+    const result = await this.databaseService.db
+      .select()
+      .from(customers)
+      .where(
+        and(
+          eq(customers.organizationId, organizationId),
+          eq(customers.phoneCode, phoneCode),
+          eq(customers.phoneNumber, phoneNumber),
+        ),
+      )
+      .limit(1);
+
+    return result[0] || null;
+  }
+
   async create(data: NewCustomer): Promise<Customer> {
     // Convert undefined to null for optional fields to avoid SQL issues
     const cleanData: NewCustomer = {
@@ -49,7 +73,8 @@ export class CustomerRepository {
       documentType: data.documentType ?? null,
       documentNumber: data.documentNumber ?? null,
       email: data.email ?? null,
-      phone: data.phone ?? null,
+      phoneCode: data.phoneCode ?? null,
+      phoneNumber: data.phoneNumber ?? null,
     };
 
     try {
@@ -87,7 +112,8 @@ export class CustomerRepository {
     if (data.documentType !== undefined) cleanData.documentType = data.documentType ?? null;
     if (data.documentNumber !== undefined) cleanData.documentNumber = data.documentNumber ?? null;
     if (data.email !== undefined) cleanData.email = data.email ?? null;
-    if (data.phone !== undefined) cleanData.phone = data.phone ?? null;
+    if (data.phoneCode !== undefined) cleanData.phoneCode = data.phoneCode ?? null;
+    if (data.phoneNumber !== undefined) cleanData.phoneNumber = data.phoneNumber ?? null;
 
     const result = await this.databaseService.db
       .update(customers)
@@ -108,10 +134,33 @@ export class CustomerRepository {
       documentType?: string;
       documentNumber?: string;
       email?: string;
-      phone?: string;
+      phoneCode?: string;
+      phoneNumber?: string;
     },
   ): Promise<Customer> {
-    // Try to find existing customer by document
+    // Priority 1: Try to find existing customer by phone (primary identifier)
+    if (customerData.phoneCode && customerData.phoneNumber) {
+      const existingByPhone = await this.findByPhone(
+        organizationId,
+        customerData.phoneCode,
+        customerData.phoneNumber,
+      );
+
+      if (existingByPhone) {
+        // Update existing customer with new data
+        const updated = await this.update(existingByPhone.id, {
+          fullName: customerData.fullName ?? existingByPhone.fullName,
+          documentType: customerData.documentType ?? existingByPhone.documentType,
+          documentNumber: customerData.documentNumber ?? existingByPhone.documentNumber,
+          email: customerData.email ?? existingByPhone.email,
+          phoneCode: customerData.phoneCode,
+          phoneNumber: customerData.phoneNumber,
+        });
+        return updated || existingByPhone;
+      }
+    }
+
+    // Priority 2: Try to find existing customer by document
     if (customerData.documentType && customerData.documentNumber) {
       const existing = await this.findByOrganizationAndDocument(
         organizationId,
@@ -120,11 +169,12 @@ export class CustomerRepository {
       );
 
       if (existing) {
-        // Update existing customer
+        // Update existing customer, including phone if provided
         const updated = await this.update(existing.id, {
           fullName: customerData.fullName,
           email: customerData.email,
-          phone: customerData.phone,
+          phoneCode: customerData.phoneCode,
+          phoneNumber: customerData.phoneNumber,
         });
         return updated || existing;
       }
@@ -137,7 +187,8 @@ export class CustomerRepository {
       documentType: customerData.documentType ?? null,
       documentNumber: customerData.documentNumber ?? null,
       email: customerData.email ?? null,
-      phone: customerData.phone ?? null,
+      phoneCode: customerData.phoneCode ?? null,
+      phoneNumber: customerData.phoneNumber ?? null,
     });
   }
 }

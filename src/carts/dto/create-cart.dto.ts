@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsOptional, ValidateNested } from 'class-validator'
+import { IsString, IsArray, IsOptional, ValidateNested, IsEnum } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { CreateCartItemDto } from './create-cart-item.dto'
@@ -62,5 +62,16 @@ export class CreateCartDto {
   })
   @IsString()
   organizationId: string
+
+  @ApiPropertyOptional({
+    description: 'Método de entrega',
+    example: 'store_pickup',
+    enum: ['store_pickup', 'home_delivery'],
+    default: 'store_pickup',
+  })
+  @IsOptional()
+  @IsString()
+  @IsEnum(['store_pickup', 'home_delivery'])
+  deliveryType?: 'store_pickup' | 'home_delivery'
 }
 

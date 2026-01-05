@@ -35,6 +35,7 @@ import { UpdateCartDto } from './dto/update-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
 import { UpdateCustomerDataDto } from './dto/update-customer-data.dto';
 import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
+import { SearchCustomerByPhoneDto } from './dto/search-customer-by-phone.dto';
 import { AddPaymentProofDto } from './dto/responses/add-payment-proof.dto';
 import { CartResponseDto } from './dto/responses/cart-response.dto';
 import { QuoteListItemDto } from './dto/responses/quote-list-item.dto';
@@ -211,6 +212,33 @@ export class CartController {
       totalItems: cart.totalItems,
       totalPrice: parseFloat(cart.totalPrice),
     };
+  }
+
+  @ApiOperation({
+    summary: 'Buscar cliente por teléfono',
+    description: 'Busca un cliente existente por código de país y número telefónico en la organización',
+  })
+  @ApiQuery({ name: 'phoneCode', description: 'Código de país (ej: +56, +1)', required: true })
+  @ApiQuery({ name: 'phoneNumber', description: 'Número telefónico sin código', required: true })
+  @ApiResponse({ status: 200, description: 'Cliente encontrado' })
+  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
+  @Get('customer/search')
+  async searchCustomerByPhone(
+    @Query() searchDto: SearchCustomerByPhoneDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    const customer = await this.cartService.findCustomerByPhone(
+      parseInt(organizationId),
+      searchDto.phoneCode,
+      searchDto.phoneNumber,
+    );
+    if (!customer) {
+      throw new BadRequestException('Cliente no encontrado');
+    }
+    return customer;
   }
 
   @ApiOperation({
