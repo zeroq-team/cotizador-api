@@ -35,7 +35,7 @@ import { ValidateProofDto } from './dto/validate-proof.dto';
 import { PaymentFiltersDto } from './dto/payment-filters.dto';
 import { PaginatedPaymentsDto } from './dto/paginated-payments.dto';
 import { PaymentStatus } from '../database/schemas';
-
+import { PaymentResponseDto } from './dto/payment-response.dto';
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentController {
@@ -76,14 +76,12 @@ export class PaymentController {
   }
 
   @Get('cart/:cartId')
-  @ApiOperation({ summary: 'Get payments by cart ID' })
+  @ApiOperation({ summary: 'Get all payments by cart ID' })
   @ApiParam({ name: 'cartId', description: 'Cart ID' })
-  @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Payments retrieved successfully', type: [PaymentResponseDto] })
   async findByCartId(@Param('cartId') cartId: string) {
     const payments = await this.paymentService.findByCartId(cartId);
-    // Return the most recent completed payment, or the first payment if none completed
-    const completedPayment = payments.find(p => p.status === 'completed');
-    return completedPayment || payments[0] || null;
+    return payments;
   }
 
   @Get(':id')
