@@ -977,6 +977,7 @@ export class CartService {
     const payment = await this.paymentService.createProofPayment(
       { ...createProofPaymentDto, cartId },
       file,
+      cart.organizationId.toString(),
     );
 
     // Actualizar el estado de la conversación a 'Verificando pago'
