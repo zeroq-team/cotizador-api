@@ -15,7 +15,6 @@ import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
 import { UpdateCustomerDataDto } from './dto/update-customer-data.dto';
-import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
 import { Cart, CartItemRecord, NewCartItem, Customer } from '../database/schemas';
 import { CartGateway } from './cart.gateway';
 import { ProductsService } from '../products/products.service';
@@ -59,6 +58,7 @@ export class CartService {
       documentType,
       documentNumber,
       organizationId,
+      deliveryType,
     } = createCartDto;
 
     // Create new cart with conversation_id
@@ -85,6 +85,7 @@ export class CartService {
       organizationId: parseInt(organizationId),
       totalItems: 0,
       totalPrice: '0',
+      deliveryType: deliveryType || 'store_pickup',
       ...(customerId && { customerId }),
     });
 
@@ -446,6 +447,8 @@ export class CartService {
       updateCartDto.documentNumber !== undefined ||
       updateCartDto.email !== undefined ||
       updateCartDto.phone !== undefined ||
+      updateCartDto.phoneCode !== undefined ||
+      updateCartDto.phoneNumber !== undefined ||
       updateCartDto.deliveryStreet !== undefined ||
       updateCartDto.deliveryStreetNumber !== undefined ||
       updateCartDto.deliveryApartment !== undefined ||
@@ -503,7 +506,9 @@ export class CartService {
           documentType: updateCartDto.documentType,
           documentNumber: updateCartDto.documentNumber,
           email: updateCartDto.email,
-          phone: updateCartDto.phone,
+          ...(updateCartDto.phone && { phone: updateCartDto.phone }), // Mantener para compatibilidad
+          ...(updateCartDto.phoneCode && { phoneCode: updateCartDto.phoneCode }),
+          ...(updateCartDto.phoneNumber && { phoneNumber: updateCartDto.phoneNumber }),
         },
       );
       customerId = customer.id;
@@ -533,11 +538,12 @@ export class CartService {
       }
     }
 
-    // Update cart totals and customer reference
+    // Update cart totals, customer reference, and delivery type
     const updatedCart = await this.cartRepository.update(id, {
       totalItems,
       totalPrice,
       ...(customerId && { customerId }),
+      ...(updateCartDto.deliveryType && { deliveryType: updateCartDto.deliveryType }),
     });
 
     if (!updatedCart) {
@@ -700,6 +706,21 @@ export class CartService {
   }
 
   /**
+   * Busca un cliente por teléfono en la organización
+   */
+  async findCustomerByPhone(
+    organizationId: number,
+    phoneCode: string,
+    phoneNumber: string,
+  ): Promise<Customer | null> {
+    return await this.customerRepository.findByPhone(
+      organizationId,
+      phoneCode,
+      phoneNumber,
+    );
+  }
+
+  /**
    * Actualiza los datos del cliente y dirección de entrega
    */
   async updateCustomerData(
@@ -720,7 +741,9 @@ export class CartService {
       updateCustomerDataDto.documentType ||
       updateCustomerDataDto.documentNumber ||
       updateCustomerDataDto.email ||
-      updateCustomerDataDto.phone
+      updateCustomerDataDto.phone ||
+      updateCustomerDataDto.phoneCode ||
+      updateCustomerDataDto.phoneNumber
     ) {
       try {
         const customer = await this.customerRepository.upsert(
@@ -730,7 +753,8 @@ export class CartService {
             documentType: updateCustomerDataDto.documentType,
             documentNumber: updateCustomerDataDto.documentNumber,
             email: updateCustomerDataDto.email,
-            phone: updateCustomerDataDto.phone,
+            phoneCode: updateCustomerDataDto.phoneCode,
+            phoneNumber: updateCustomerDataDto.phoneNumber,
           },
         );
         customerId = customer.id;

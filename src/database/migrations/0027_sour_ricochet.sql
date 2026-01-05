@@ -1,0 +1,1 @@
+ALTER TABLE "carts" ADD COLUMN "delivery_type" varchar(50) DEFAULT 'store_pickup' NOT NULL;

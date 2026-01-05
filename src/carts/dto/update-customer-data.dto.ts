@@ -122,13 +122,32 @@ export class UpdateCustomerDataDto {
   email?: string
 
   @ApiPropertyOptional({
-    description: 'Teléfono de contacto del cliente',
+    description: 'Teléfono de contacto del cliente (deprecated: usar phoneCode y phoneNumber)',
     example: '+56 9 1234 5678',
     type: String,
+    deprecated: true,
   })
   @IsOptional()
   @IsString()
   phone?: string
+
+  @ApiPropertyOptional({
+    description: 'Código de país del teléfono',
+    example: '+56',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  phoneCode?: string
+
+  @ApiPropertyOptional({
+    description: 'Número telefónico sin código de país',
+    example: '912345678',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string
 
   @ApiPropertyOptional({
     description: 'Dirección de entrega',

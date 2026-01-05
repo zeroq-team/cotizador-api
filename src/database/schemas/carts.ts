@@ -30,6 +30,9 @@ export const carts = pgTable('carts', {
   // Customer reference
   customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   
+  // Delivery method
+  deliveryType: varchar('delivery_type', { length: 50 }).notNull().default('store_pickup'), // 'store_pickup' | 'home_delivery'
+  
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

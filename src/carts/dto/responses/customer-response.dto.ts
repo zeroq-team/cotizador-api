@@ -19,8 +19,14 @@ export class CustomerResponseDto {
   @ApiPropertyOptional({ example: 'cliente@empresa.cl', description: 'Correo electrónico' })
   email?: string
 
-  @ApiPropertyOptional({ example: '+56 9 1234 5678', description: 'Teléfono de contacto' })
+  @ApiPropertyOptional({ example: '+56 9 1234 5678', description: 'Teléfono de contacto (deprecated: usar phoneCode y phoneNumber)', deprecated: true })
   phone?: string
+
+  @ApiPropertyOptional({ example: '+56', description: 'Código de país del teléfono' })
+  phoneCode?: string
+
+  @ApiPropertyOptional({ example: '912345678', description: 'Número telefónico sin código de país' })
+  phoneNumber?: string
 
   @ApiPropertyOptional({ example: 'Av. Providencia', description: 'Calle de entrega' })
   deliveryStreet?: string

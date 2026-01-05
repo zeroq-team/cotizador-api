@@ -1,4 +1,4 @@
-import { IsArray, ValidateNested, IsOptional, IsString } from 'class-validator'
+import { IsArray, ValidateNested, IsOptional, IsString, IsEnum } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 import { CreateCartItemDto } from './create-cart-item.dto'
@@ -61,13 +61,32 @@ export class UpdateCartDto {
   email?: string
 
   @ApiPropertyOptional({
-    description: 'Teléfono de contacto del cliente',
+    description: 'Teléfono de contacto del cliente (deprecated: usar phoneCode y phoneNumber)',
     example: '+56 9 1234 5678',
     type: String,
+    deprecated: true,
   })
   @IsOptional()
   @IsString()
   phone?: string
+
+  @ApiPropertyOptional({
+    description: 'Código de país del teléfono',
+    example: '+56',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  phoneCode?: string
+
+  @ApiPropertyOptional({
+    description: 'Número telefónico sin código de país',
+    example: '912345678',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string
 
   @ApiPropertyOptional({
     description: 'DEPRECATED: Use /cart/:id/customer-data endpoint instead. Calle de entrega',
@@ -141,6 +160,17 @@ export class UpdateCartDto {
   @IsOptional()
   @IsString()
   deliveryOffice?: string
+
+  @ApiPropertyOptional({
+    description: 'Método de entrega',
+    example: 'store_pickup',
+    enum: ['store_pickup', 'home_delivery'],
+    default: 'store_pickup',
+  })
+  @IsOptional()
+  @IsString()
+  @IsEnum(['store_pickup', 'home_delivery'])
+  deliveryType?: 'store_pickup' | 'home_delivery'
 
   // add suggestions to the cart
   @ApiPropertyOptional({
