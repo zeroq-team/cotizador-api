@@ -15,6 +15,7 @@ import { PriceListsModule } from './price-lists/price-lists.module';
 import { PriceListConditionsModule } from './price-list-conditions/price-list-conditions.module';
 import configuration from './config/configuration';
 import { CustomizationFieldGroupModule } from './customization-field-groups/customization-field-group.module';
+import { ChileLocationsModule } from './chile-locations/chile-locations.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CustomizationFieldGroupModule } from './customization-field-groups/cust
     S3Module,
     PaymentModule,
     OrganizationModule,
+    ChileLocationsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ConversationsService],

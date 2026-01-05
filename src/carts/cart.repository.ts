@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, desc, and, asc } from 'drizzle-orm';
+import { eq, desc, and, asc, isNull } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   carts,
@@ -84,13 +84,18 @@ export class CartRepository {
       .filter((row) => row.cart_items)
       .map((row) => row.cart_items!);
 
-    // If customer exists, load delivery addresses
+    // If customer exists, load delivery addresses (excluding deleted ones)
     let customerWithAddresses = customer;
     if (customer) {
       const addresses = await this.databaseService.db
         .select()
         .from(deliveryAddresses)
-        .where(eq(deliveryAddresses.customerId, customer.id));
+        .where(
+          and(
+            eq(deliveryAddresses.customerId, customer.id),
+            isNull(deliveryAddresses.deletedAt),
+          ),
+        );
       
       customerWithAddresses = {
         ...customer,

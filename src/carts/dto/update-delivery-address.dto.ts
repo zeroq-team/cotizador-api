@@ -29,14 +29,15 @@ export class UpdateDeliveryAddressDto {
   @IsString()
   apartment?: string
 
+
   @ApiPropertyOptional({
-    description: 'Ciudad de entrega',
+    description: 'Comuna de entrega',
     example: 'Santiago',
     type: String,
   })
   @IsOptional()
   @IsString()
-  city?: string
+  commune?: string
 
   @ApiPropertyOptional({
     description: 'Región de entrega',

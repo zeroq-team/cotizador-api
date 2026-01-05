@@ -32,6 +32,7 @@ import { Response } from 'express';
 import { CartService } from './cart.service';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
+import { PatchCartDto } from './dto/patch-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
 import { UpdateCustomerDataDto } from './dto/update-customer-data.dto';
 import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
@@ -190,6 +191,36 @@ export class CartController {
   }
 
   @ApiOperation({
+    summary: 'Actualización parcial del carrito',
+    description: 'Actualiza campos específicos del carrito (actualización parcial)',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiBody({ type: PatchCartDto })
+  @ApiResponse({ status: 200, description: 'Carrito actualizado', type: CartResponseDto })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @Patch(':id')
+  async patchCart(
+    @Param('id') id: string,
+    @Body() patchCartDto: PatchCartDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    const cart = await this.cartService.patchCart(id, patchCartDto, organizationId);
+    return {
+      id: cart.id,
+      items: cart.items,
+      totalItems: cart.totalItems,
+      totalPrice: parseFloat(cart.totalPrice),
+      deliveryType: cart.deliveryType,
+      deliveryAddressId: cart.deliveryAddressId,
+      customer: (cart as any).customer,
+    };
+  }
+
+  @ApiOperation({
     summary: 'Actualizar personalización de productos',
     description: 'Actualiza los valores de personalización para productos seleccionados',
   })
@@ -268,6 +299,35 @@ export class CartController {
   }
 
   @ApiOperation({
+    summary: 'Crear nueva dirección de entrega',
+    description: 'Crea una nueva dirección de entrega para el cliente del carrito',
+  })
+  @ApiParam({ name: 'id', description: 'ID único del carrito' })
+  @ApiBody({ type: UpdateDeliveryAddressDto })
+  @ApiResponse({ status: 201, description: 'Dirección creada', type: CartResponseDto })
+  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
+  @HttpCode(HttpStatus.CREATED)
+  @Post(':id/delivery-address')
+  async createDeliveryAddress(
+    @Param('id') id: string,
+    @Body() createAddressDto: UpdateDeliveryAddressDto,
+  ) {
+
+    console.log('createAddressDto', createAddressDto);
+    const cart = await this.cartService.createDeliveryAddress(id, createAddressDto);
+    return {
+      id: cart.id,
+      items: cart.items.map((item) => ({
+        ...item,
+        price: parseFloat(item.price.toString()),
+      })),
+      totalItems: cart.totalItems,
+      totalPrice: parseFloat(cart.totalPrice),
+      customer: cart.customer,
+    };
+  }
+
+  @ApiOperation({
     summary: 'Actualizar dirección de entrega',
     description: 'Actualiza una dirección de entrega específica del cliente',
   })
@@ -333,32 +393,6 @@ export class CartController {
     return await this.cartService.getCartChangelog(id);
   }
 
-  @ApiOperation({
-    summary: 'Generar PDF de la cotización',
-    description: 'Genera y descarga un PDF con el detalle completo de la cotización',
-  })
-  @ApiParam({ name: 'id', description: 'ID único del carrito/cotización' })
-  @ApiProduces('application/pdf')
-  @ApiResponse({ status: 200, description: 'PDF generado exitosamente' })
-  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
-  @Get(':id/pdf')
-  async generateQuotePdf(
-    @Param('id') id: string,
-    @Headers('x-organization-id') organizationId: string,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<StreamableFile> {
-    const pdfBuffer = await this.cartService.generateQuotePdf(id, organizationId);
-    const quoteNumber = id.slice(-8).toUpperCase();
-    const filename = `cotizacion-${quoteNumber}.pdf`;
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': pdfBuffer.length,
-    });
-
-    return new StreamableFile(pdfBuffer);
-  }
 
   @ApiOperation({
     summary: 'Agregar pago con comprobante',

@@ -8,7 +8,6 @@ import { CustomerRepository } from './customer.repository';
 import { DeliveryAddressRepository } from './delivery-address.repository';
 import { CartGateway } from './cart.gateway';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
-import { QuotePdfGeneratorService } from './services/quote-pdf-generator.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProductsModule } from '../products/products.module';
 import { PaymentModule } from '../payments/payment.module';
@@ -29,7 +28,6 @@ import { OrganizationModule } from '../organization/organization.module';
     CartGateway,
     ConversationsService,
     PriceListEvaluationService,
-    QuotePdfGeneratorService,
   ],
   exports: [CartService, CartGateway, PriceListEvaluationService],
 })

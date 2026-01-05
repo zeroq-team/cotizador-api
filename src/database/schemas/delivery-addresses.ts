@@ -12,7 +12,7 @@ export const deliveryAddresses = pgTable('delivery_addresses', {
   street: text('street'),
   streetNumber: varchar('street_number', { length: 50 }),
   apartment: varchar('apartment', { length: 50 }),
-  city: varchar('city', { length: 100 }),
+  commune: varchar('commune', { length: 100 }), // Comuna (reemplaza city)
   region: varchar('region', { length: 100 }),
   postalCode: varchar('postal_code', { length: 20 }),
   country: varchar('country', { length: 100 }),
