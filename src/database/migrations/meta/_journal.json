@@ -211,6 +211,27 @@
       "when": 1767629171364,
       "tag": "0029_skinny_wolverine",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1767630409133,
+      "tag": "0030_colossal_metal_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1767631469971,
+      "tag": "0031_dusty_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1767631998259,
+      "tag": "0032_careful_blink",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, ne } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   deliveryAddresses,
@@ -57,6 +57,7 @@ export class DeliveryAddressRepository {
 
   async create(data: NewDeliveryAddress): Promise<DeliveryAddress> {
     // If this is set as default, unset other defaults for this customer
+    // (no need to exclude any address since this is a new one)
     if (data.isDefault) {
       await this.unsetDefaultsForCustomer(data.customerId);
     }
@@ -66,7 +67,7 @@ export class DeliveryAddressRepository {
       street: data.street ?? null,
       streetNumber: data.streetNumber ?? null,
       apartment: data.apartment ?? null,
-      city: data.city ?? null,
+      commune: data.commune ?? null,
       region: data.region ?? null,
       postalCode: data.postalCode ?? null,
       country: data.country ?? null,
@@ -89,22 +90,58 @@ export class DeliveryAddressRepository {
       return null;
     }
 
-    // If setting as default, unset other defaults
-    if (data.isDefault === true) {
-      await this.unsetDefaultsForCustomer(address.customerId);
-    }
-
     const cleanData: Partial<NewDeliveryAddress> = {};
     if (data.street !== undefined) cleanData.street = data.street ?? null;
     if (data.streetNumber !== undefined) cleanData.streetNumber = data.streetNumber ?? null;
     if (data.apartment !== undefined) cleanData.apartment = data.apartment ?? null;
-    if (data.city !== undefined) cleanData.city = data.city ?? null;
+    if (data.commune !== undefined) cleanData.commune = data.commune ?? null;
     if (data.region !== undefined) cleanData.region = data.region ?? null;
     if (data.postalCode !== undefined) cleanData.postalCode = data.postalCode ?? null;
     if (data.country !== undefined) cleanData.country = data.country ?? null;
     if (data.office !== undefined) cleanData.office = data.office ?? null;
     if (data.isDefault !== undefined) cleanData.isDefault = data.isDefault;
 
+    // Only update if there's something to update
+    if (Object.keys(cleanData).length === 0) {
+      return address;
+    }
+
+    // Use transaction to ensure atomicity when setting default
+    if (data.isDefault === true) {
+      return await this.databaseService.db.transaction(async (tx) => {
+        // First, unset all other defaults for this customer (excluding this address)
+        const unsetConditions = [
+          eq(deliveryAddresses.customerId, address.customerId),
+          eq(deliveryAddresses.isDefault, true),
+          isNull(deliveryAddresses.deletedAt),
+          ne(deliveryAddresses.id, id),
+        ];
+        
+        await tx
+          .update(deliveryAddresses)
+          .set({ isDefault: false, updatedAt: new Date() })
+          .where(and(...unsetConditions));
+
+        // Then, update the current address
+        const result = await tx
+          .update(deliveryAddresses)
+          .set({
+            ...cleanData,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(deliveryAddresses.id, id),
+              isNull(deliveryAddresses.deletedAt),
+            ),
+          )
+          .returning();
+
+        return result[0] || null;
+      });
+    }
+
+    // If not setting as default, just update normally
     const result = await this.databaseService.db
       .update(deliveryAddresses)
       .set({
@@ -118,6 +155,8 @@ export class DeliveryAddressRepository {
         ),
       )
       .returning();
+
+    console.log('result', result);
 
     return result[0] || null;
   }
@@ -163,7 +202,7 @@ export class DeliveryAddressRepository {
       street?: string;
       streetNumber?: string;
       apartment?: string;
-      city?: string;
+      commune?: string;
       region?: string;
       postalCode?: string;
       country?: string;
@@ -180,7 +219,7 @@ export class DeliveryAddressRepository {
         street: addressData.street,
         streetNumber: addressData.streetNumber,
         apartment: addressData.apartment,
-        city: addressData.city,
+        commune: addressData.commune,
         region: addressData.region,
         postalCode: addressData.postalCode,
         country: addressData.country,
@@ -196,7 +235,7 @@ export class DeliveryAddressRepository {
       street: addressData.street ?? null,
       streetNumber: addressData.streetNumber ?? null,
       apartment: addressData.apartment ?? null,
-      city: addressData.city ?? null,
+      commune: addressData.commune ?? null,
       region: addressData.region ?? null,
       postalCode: addressData.postalCode ?? null,
       country: addressData.country ?? null,
@@ -205,17 +244,29 @@ export class DeliveryAddressRepository {
     });
   }
 
-  private async unsetDefaultsForCustomer(customerId: string): Promise<void> {
-    await this.databaseService.db
+  private async unsetDefaultsForCustomer(customerId: string, excludeAddressId?: string): Promise<void> {
+    const conditions = [
+      eq(deliveryAddresses.customerId, customerId),
+      eq(deliveryAddresses.isDefault, true),
+      isNull(deliveryAddresses.deletedAt),
+    ];
+
+    // Exclude the address being updated from being unset
+    if (excludeAddressId) {
+      conditions.push(ne(deliveryAddresses.id, excludeAddressId));
+    }
+
+    const whereClause = and(...conditions);
+    
+    console.log('unsetDefaultsForCustomer - customerId:', customerId, 'excludeAddressId:', excludeAddressId);
+    
+    const result = await this.databaseService.db
       .update(deliveryAddresses)
       .set({ isDefault: false, updatedAt: new Date() })
-      .where(
-        and(
-          eq(deliveryAddresses.customerId, customerId),
-          eq(deliveryAddresses.isDefault, true),
-          isNull(deliveryAddresses.deletedAt),
-        ),
-      );
+      .where(whereClause)
+      .returning();
+    
+    console.log('unsetDefaultsForCustomer - updated addresses:', result.map(a => ({ id: a.id, isDefault: a.isDefault })));
   }
 }
 

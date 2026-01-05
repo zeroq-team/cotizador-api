@@ -24,7 +24,6 @@ import { CreateProofPaymentDto } from '../payments/dto/create-proof-payment.dto'
 import { ConversationsService } from '../conversations/conversations.service';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { PriceListsService } from '../price-lists/price-lists.service';
-import { QuotePdfGeneratorService } from './services/quote-pdf-generator.service';
 import { OrganizationService } from '../organization/organization.service';
 
 @Injectable()
@@ -43,8 +42,6 @@ export class CartService {
     private readonly conversationsService: ConversationsService,
     private readonly priceListEvaluationService: PriceListEvaluationService,
     @Inject(forwardRef(() => PriceListsService))
-    private readonly priceListsService: PriceListsService,
-    private readonly quotePdfGeneratorService: QuotePdfGeneratorService,
     private readonly organizationService: OrganizationService,
   ) {}
 
@@ -245,82 +242,6 @@ export class CartService {
     }
   }
 
-  /**
-   * Actualiza los precios de los items del carrito con la lista de precios aplicada
-   */
-  private async updateCartItemsPrices(
-    items: CartItemRecord[],
-    appliedPriceList:
-      | { id: number; name: string; isDefault: boolean }
-      | undefined,
-    organizationId: string,
-  ): Promise<CartItemRecord[]> {
-    // Si no hay lista aplicada o es la lista por defecto, retornar items sin cambios
-    if (!appliedPriceList || appliedPriceList.isDefault) {
-      return items;
-    }
-
-    // Obtener la lista de precios por defecto para usar como fallback
-    const priceLists = await this.priceListsService.getPriceLists(
-      organizationId,
-      { status: 'active' },
-    );
-    const defaultPriceList = priceLists.priceLists.find((pl) => pl.isDefault);
-
-    if (!defaultPriceList) {
-      this.logger.warn(
-        'Default price list not found, returning items without price update',
-      );
-      return items;
-    }
-
-    // Actualizar precios de cada item
-    const updatedItems = await Promise.all(
-      items.map(async (item) => {
-        try {
-          // Obtener el precio del producto en la lista de precios aplicada
-          const { amount } =
-            await this.priceListEvaluationService.getProductPrice(
-              item.productId,
-              appliedPriceList.id,
-              organizationId,
-            );
-
-          return {
-            ...item,
-            price: amount,
-          };
-        } catch (error) {
-          // Si no hay precio en la lista aplicada, intentar con la lista por defecto
-          try {
-            const { amount } =
-              await this.priceListEvaluationService.getProductPrice(
-                item.productId,
-                defaultPriceList.id,
-                organizationId,
-              );
-
-            this.logger.warn(
-              `Price not found for product ${item.productId} in applied price list ${appliedPriceList.id}, using default price`,
-            );
-
-            return {
-              ...item,
-              price: amount,
-            };
-          } catch (fallbackError) {
-            // Si tampoco hay precio por defecto, mantener el precio actual
-            this.logger.error(
-              `Could not get price for product ${item.productId} in any price list`,
-            );
-            return item;
-          }
-        }
-      }),
-    );
-
-    return updatedItems;
-  }
 
   async getPriceListProgress(id: string, organizationId: string) {
     const cart = await this.cartRepository.findByIdWithItems(id);
@@ -452,7 +373,7 @@ export class CartService {
       updateCartDto.deliveryStreet !== undefined ||
       updateCartDto.deliveryStreetNumber !== undefined ||
       updateCartDto.deliveryApartment !== undefined ||
-      updateCartDto.deliveryCity !== undefined ||
+      updateCartDto.deliveryCommune !== undefined ||
       updateCartDto.deliveryRegion !== undefined ||
       updateCartDto.deliveryPostalCode !== undefined ||
       updateCartDto.deliveryCountry !== undefined ||
@@ -463,7 +384,7 @@ export class CartService {
         updateCartDto.deliveryStreet !== undefined ||
         updateCartDto.deliveryStreetNumber !== undefined ||
         updateCartDto.deliveryApartment !== undefined ||
-        updateCartDto.deliveryCity !== undefined ||
+        updateCartDto.deliveryCommune !== undefined ||
         updateCartDto.deliveryRegion !== undefined ||
         updateCartDto.deliveryPostalCode !== undefined ||
         updateCartDto.deliveryCountry !== undefined ||
@@ -476,8 +397,8 @@ export class CartService {
         if (!updateCartDto.deliveryStreetNumber?.trim()) {
           throw new BadRequestException('El número de calle de entrega es requerido');
         }
-        if (!updateCartDto.deliveryCity?.trim()) {
-          throw new BadRequestException('La ciudad de entrega es requerida');
+        if (!updateCartDto.deliveryCommune?.trim()) {
+          throw new BadRequestException('La comuna de entrega es requerida');
         }
         if (!updateCartDto.deliveryRegion?.trim()) {
           throw new BadRequestException('La región de entrega es requerida');
@@ -518,7 +439,7 @@ export class CartService {
         updateCartDto.deliveryStreet ||
         updateCartDto.deliveryStreetNumber ||
         updateCartDto.deliveryApartment ||
-        updateCartDto.deliveryCity ||
+        updateCartDto.deliveryCommune ||
         updateCartDto.deliveryRegion ||
         updateCartDto.deliveryPostalCode ||
         updateCartDto.deliveryCountry ||
@@ -528,7 +449,7 @@ export class CartService {
           street: updateCartDto.deliveryStreet,
           streetNumber: updateCartDto.deliveryStreetNumber,
           apartment: updateCartDto.deliveryApartment,
-          city: updateCartDto.deliveryCity,
+          commune: updateCartDto.deliveryCommune,
           region: updateCartDto.deliveryRegion,
           postalCode: updateCartDto.deliveryPostalCode,
           country: updateCartDto.deliveryCountry,
@@ -559,6 +480,70 @@ export class CartService {
     // Emit real-time event
     if (updateCartDto.items && updateCartDto.items.length > 0) {
       this.cartGateway.emitCartUpdated(id, cartWithItems);
+    }
+
+    return cartWithItems;
+  }
+
+  async patchCart(
+    id: string,
+    patchCartDto: { deliveryType?: 'store_pickup' | 'home_delivery'; deliveryAddressId?: string },
+    organizationId: string,
+  ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
+    // Verify cart exists and belongs to organization
+    const cart = await this.cartRepository.findById(id);
+    if (!cart) {
+      throw new NotFoundException(`Carrito con ID ${id} no encontrado`);
+    }
+
+    if (cart.organizationId !== Number(organizationId)) {
+      throw new BadRequestException('El carrito no pertenece a la organización especificada');
+    }
+
+    // Validate deliveryAddressId if deliveryType is home_delivery
+    if (patchCartDto.deliveryType === 'home_delivery') {
+      if (!patchCartDto.deliveryAddressId) {
+        throw new BadRequestException('La dirección de entrega es requerida cuando el tipo de envío es "home_delivery"');
+      }
+      
+      // Verify the address belongs to the cart's customer
+      if (cart.customerId) {
+        const address = await this.deliveryAddressRepository.findById(patchCartDto.deliveryAddressId);
+        if (!address || address.customerId !== cart.customerId) {
+          throw new BadRequestException('La dirección de entrega no pertenece al cliente del carrito');
+        }
+      } else {
+        throw new BadRequestException('El carrito no tiene un cliente asociado');
+      }
+    }
+
+    // Update deliveryType and deliveryAddressId if provided
+    const updateData: Partial<Cart> = {};
+    if (patchCartDto.deliveryType !== undefined) {
+      updateData.deliveryType = patchCartDto.deliveryType;
+    }
+    
+    // Update deliveryAddressId
+    if (patchCartDto.deliveryType === 'home_delivery' && patchCartDto.deliveryAddressId) {
+      updateData.deliveryAddressId = patchCartDto.deliveryAddressId;
+    } else if (patchCartDto.deliveryType === 'store_pickup') {
+      // Clear deliveryAddressId when switching to store pickup
+      updateData.deliveryAddressId = null;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException('No se proporcionaron campos para actualizar');
+    }
+
+    const updatedCart = await this.cartRepository.update(id, updateData);
+    if (!updatedCart) {
+      throw new BadRequestException('Failed to update cart');
+    }
+
+    // Return cart with items
+    const cartWithItems = await this.cartRepository.findByIdWithItems(id);
+    if (!cartWithItems) {
+      throw new BadRequestException('Failed to retrieve updated cart');
     }
 
     return cartWithItems;
@@ -699,8 +684,7 @@ export class CartService {
       throw new BadRequestException('Failed to retrieve updated cart');
     }
 
-    // Emit real-time event
-    this.cartGateway.emitCartUpdated(cartId, updatedCart);
+ 
 
     return updatedCart;
   }
@@ -741,7 +725,6 @@ export class CartService {
       updateCustomerDataDto.documentType ||
       updateCustomerDataDto.documentNumber ||
       updateCustomerDataDto.email ||
-      updateCustomerDataDto.phone ||
       updateCustomerDataDto.phoneCode ||
       updateCustomerDataDto.phoneNumber
     ) {
@@ -765,7 +748,7 @@ export class CartService {
             street: updateCustomerDataDto.deliveryAddress.street,
             streetNumber: updateCustomerDataDto.deliveryAddress.streetNumber,
             apartment: updateCustomerDataDto.deliveryAddress.apartment,
-            city: updateCustomerDataDto.deliveryAddress.city,
+            commune: updateCustomerDataDto.deliveryAddress.commune,
             region: updateCustomerDataDto.deliveryAddress.region,
             postalCode: updateCustomerDataDto.deliveryAddress.postalCode,
             country: updateCustomerDataDto.deliveryAddress.country,
@@ -797,8 +780,58 @@ export class CartService {
       throw new BadRequestException('Failed to retrieve updated cart');
     }
 
-    // Emit real-time event
-    this.cartGateway.emitCartUpdated(cartId, cartWithItems);
+    return cartWithItems;
+  }
+
+  /**
+   * Crea una nueva dirección de entrega para el cliente del carrito
+   */
+  async createDeliveryAddress(
+    cartId: string,
+    addressData: {
+      street?: string;
+      streetNumber?: string;
+      apartment?: string;
+      commune?: string;
+      region?: string;
+      postalCode?: string;
+      country?: string;
+      office?: string;
+      isDefault?: boolean;
+    },
+  ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
+    const existingCart = await this.cartRepository.findByIdWithItems(cartId);
+    if (!existingCart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    if (!existingCart.customerId) {
+      throw new BadRequestException('El carrito no tiene un cliente asociado');
+    }
+
+    // Create new address (always create, never update)
+    // Only set as default if explicitly requested AND there are no other addresses
+    const existingAddresses = await this.deliveryAddressRepository.findByCustomerId(existingCart.customerId);
+    const shouldBeDefault = addressData.isDefault === true && existingAddresses.length === 0;
+    
+    const newAddress = await this.deliveryAddressRepository.create({
+      customerId: existingCart.customerId,
+      street: addressData.street ?? null,
+      streetNumber: addressData.streetNumber ?? null,
+      apartment: addressData.apartment ?? null,
+      commune: addressData.commune ?? null,
+      region: addressData.region ?? null,
+      postalCode: addressData.postalCode ?? null,
+      country: addressData.country ?? null,
+      office: addressData.office ?? null,
+      isDefault: shouldBeDefault, // Only default if it's the first address
+    });
+
+    // Return updated cart with items and customer
+    const cartWithItems = await this.cartRepository.findByIdWithItems(cartId);
+    if (!cartWithItems) {
+      throw new BadRequestException('Failed to retrieve updated cart');
+    }
 
     return cartWithItems;
   }
@@ -813,7 +846,7 @@ export class CartService {
       street?: string;
       streetNumber?: string;
       apartment?: string;
-      city?: string;
+      commune?: string;
       region?: string;
       postalCode?: string;
       country?: string;
@@ -836,17 +869,17 @@ export class CartService {
       throw new NotFoundException(`Delivery address with ID ${addressId} not found`);
     }
 
-    // Update address
-    await this.deliveryAddressRepository.update(addressId, updateAddressDto);
+    // Update the address
+    const updatedAddress = await this.deliveryAddressRepository.update(addressId, updateAddressDto);
+    if (!updatedAddress) {
+      throw new BadRequestException('Failed to update delivery address');
+    }
 
     // Return updated cart
     const cartWithItems = await this.cartRepository.findByIdWithItems(cartId);
     if (!cartWithItems) {
       throw new BadRequestException('Failed to retrieve updated cart');
     }
-
-    // Emit real-time event
-    this.cartGateway.emitCartUpdated(cartId, cartWithItems);
 
     return cartWithItems;
   }
@@ -881,9 +914,6 @@ export class CartService {
     if (!cartWithItems) {
       throw new BadRequestException('Failed to retrieve updated cart');
     }
-
-    // Emit real-time event
-    this.cartGateway.emitCartUpdated(cartId, cartWithItems);
 
     return cartWithItems;
   }
@@ -983,39 +1013,6 @@ export class CartService {
     };
   }
 
-  /**
-   * Genera un PDF de la cotización
-   */
-  async generateQuotePdf(
-    cartId: string,
-    organizationId?: string,
-  ): Promise<Buffer> {
-    const cart = await this.cartRepository.findByIdWithItems(cartId);
-    if (!cart) {
-      throw new NotFoundException(`Cart with ID ${cartId} not found`);
-    }
-
-    let organizationName: string | undefined;
-
-    // Obtener nombre de la organización si se proporciona el ID
-    if (organizationId) {
-      try {
-        const organization = await this.organizationService.findOne(
-          Number(organizationId),
-        );
-        organizationName = organization.name;
-      } catch (error) {
-        this.logger.warn(
-          `Could not fetch organization ${organizationId}: ${error.message}`,
-        );
-      }
-    }
-
-    return this.quotePdfGeneratorService.generateQuotePdf({
-      cart,
-      organizationName,
-    });
-  }
 
   /**
    * Obtiene todas las sugerencias de un carrito

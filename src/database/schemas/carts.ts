@@ -4,6 +4,7 @@ import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 import { products } from './products'
 import { organizations } from './organizations'
 import { customers } from './customers'
+import { deliveryAddresses } from './delivery-addresses'
 
 // Carts Table
 export const carts = pgTable('carts', {
@@ -17,21 +18,12 @@ export const carts = pgTable('carts', {
     .notNull()
     .default('0'),
   
-  // Quote validity and status management
-  validUntil: timestamp('valid_until'),
-  status: varchar('status', { length: 50 }).notNull().default('draft'), // draft, active, expired, paid, cancelled
-  
-  // Price change tracking
-  priceValidatedAt: timestamp('price_validated_at'),
-  priceChangeApproved: boolean('price_change_approved').notNull().default(false),
-  priceChangeApprovedAt: timestamp('price_change_approved_at'),
-  originalTotalPrice: decimal('original_total_price', { precision: 10, scale: 2 }),
-  
   // Customer reference
   customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   
   // Delivery method
   deliveryType: varchar('delivery_type', { length: 50 }).notNull().default('store_pickup'), // 'store_pickup' | 'home_delivery'
+  deliveryAddressId: uuid('delivery_address_id').references(() => deliveryAddresses.id, { onDelete: 'restrict' }), // Dirección seleccionada para el envío
   
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -68,6 +60,10 @@ export const cartsRelations = relations(carts, ({ one, many }) => ({
   customer: one(customers, {
     fields: [carts.customerId],
     references: [customers.id],
+  }),
+  deliveryAddress: one(deliveryAddresses, {
+    fields: [carts.deliveryAddressId],
+    references: [deliveryAddresses.id],
   }),
   items: many(cartItems),
 }))

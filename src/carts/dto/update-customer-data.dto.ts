@@ -30,14 +30,15 @@ export class DeliveryAddressDto {
   @IsString()
   apartment?: string
 
+
   @ApiPropertyOptional({
-    description: 'Ciudad de entrega',
+    description: 'Comuna de entrega',
     example: 'Santiago',
     type: String,
   })
   @IsOptional()
   @IsString()
-  city?: string
+  commune?: string
 
   @ApiPropertyOptional({
     description: 'Región de entrega',
@@ -120,16 +121,6 @@ export class UpdateCustomerDataDto {
   @IsOptional()
   @IsString()
   email?: string
-
-  @ApiPropertyOptional({
-    description: 'Teléfono de contacto del cliente (deprecated: usar phoneCode y phoneNumber)',
-    example: '+56 9 1234 5678',
-    type: String,
-    deprecated: true,
-  })
-  @IsOptional()
-  @IsString()
-  phone?: string
 
   @ApiPropertyOptional({
     description: 'Código de país del teléfono',

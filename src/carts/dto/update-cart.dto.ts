@@ -117,13 +117,13 @@ export class UpdateCartDto {
   deliveryApartment?: string
 
   @ApiPropertyOptional({
-    description: 'Ciudad de entrega',
+    description: 'Comuna de entrega',
     example: 'Santiago',
     type: String,
   })
   @IsOptional()
   @IsString()
-  deliveryCity?: string
+  deliveryCommune?: string
 
   @ApiPropertyOptional({
     description: 'Región de entrega',
