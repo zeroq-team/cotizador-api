@@ -156,8 +156,6 @@ export class DeliveryAddressRepository {
       )
       .returning();
 
-    console.log('result', result);
-
     return result[0] || null;
   }
 
@@ -258,15 +256,11 @@ export class DeliveryAddressRepository {
 
     const whereClause = and(...conditions);
     
-    console.log('unsetDefaultsForCustomer - customerId:', customerId, 'excludeAddressId:', excludeAddressId);
-    
     const result = await this.databaseService.db
       .update(deliveryAddresses)
       .set({ isDefault: false, updatedAt: new Date() })
       .where(whereClause)
       .returning();
-    
-    console.log('unsetDefaultsForCustomer - updated addresses:', result.map(a => ({ id: a.id, isDefault: a.isDefault })));
   }
 }
 
