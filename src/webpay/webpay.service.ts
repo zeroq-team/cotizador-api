@@ -175,7 +175,7 @@ export class WebpayService {
 
       // PASO 1.5: Verificar si ya existe un pago pendiente para este carrito
       this.logger.log(`Verificando si existe un pago pendiente para cart ${cartId}...`);
-      const existingPendingPayment = await this.paymentService.findPendingPaymentByCartId(cartId);
+      const existingPendingPayment = await this.paymentService.findPendingPaymentByCartId(cartId, organizationId.toString());
       
       if (existingPendingPayment) {
         this.logger.warn(
@@ -212,7 +212,7 @@ export class WebpayService {
             timestamp: new Date().toISOString(),
           },
         },
-      });
+      }, organizationId.toString());
 
       this.logger.log(`Pago creado en BD: ${payment.id}`);
 
@@ -282,7 +282,7 @@ export class WebpayService {
             timeout_task_id: timeoutTask.id,
             timeout_scheduled_for: timeoutDate.toISOString(),
           },
-        });
+        }, organizationId.toString());
       } catch (taskError) {
         // Si falla la creación de la tarea de timeout, solo logueamos
         // No queremos que falle la transacción por esto
@@ -427,7 +427,7 @@ export class WebpayService {
               committed_at: new Date().toISOString(),
             },
           },
-        });
+        }, payment.organizationId.toString());
 
         this.logger.log(`Pago ${payment.id} actualizado exitosamente`);
         
