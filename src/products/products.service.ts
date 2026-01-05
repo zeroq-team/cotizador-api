@@ -115,10 +115,12 @@ export class ProductsService {
   async getProductById(
     id: number,
     organizationId: string,
-    params?: any,
+    params?: { 
+      defaultPrice?: boolean;
+    }
   ): Promise<ProductWithPricesAndMedia> {
     const orgId = parseInt(organizationId, 10);
-    const product = await this.productRepository.findById(id, orgId);
+    const product = await this.productRepository.findById(id, orgId, params?.defaultPrice);
 
     if (!product) {
       throw new NotFoundException(`Product with ID ${id} not found`);
