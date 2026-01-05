@@ -13,6 +13,8 @@ import {
   UseInterceptors,
   Res,
   StreamableFile,
+  Headers,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -45,15 +47,26 @@ export class PaymentController {
   @ApiOperation({ summary: 'Create a new payment' })
   @ApiResponse({ status: 201, description: 'Payment created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  async create(@Body() createPaymentDto: CreatePaymentDto) {
-    return await this.paymentService.create(createPaymentDto);
+  async create(
+    @Body() createPaymentDto: CreatePaymentDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.create(createPaymentDto, organizationId);
   }
 
   @Get('stats')
   @ApiOperation({ summary: 'Get global payment statistics' })
   @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
-  async getStats() {
-    return await this.paymentService.getGlobalStats();
+  async getStats(
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.getGlobalStats(organizationId);
   }
 
   @Get()
@@ -63,24 +76,42 @@ export class PaymentController {
     description: 'Payments retrieved successfully',
     type: PaginatedPaymentsDto,
   })
-  async findAll(@Query() filters: PaymentFiltersDto) {
-    return await this.paymentService.findAllPaginated(filters);
+  async findAll(
+    @Query() filters: PaymentFiltersDto,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.findAllPaginated(filters, organizationId);
   }
 
   @Get('cart/:cartId/pending')
   @ApiOperation({ summary: 'Check if cart has a pending payment' })
   @ApiParam({ name: 'cartId', description: 'Cart ID' })
   @ApiResponse({ status: 200, description: 'Returns pending payment or null' })
-  async findPendingByCartId(@Param('cartId') cartId: string) {
-    return await this.paymentService.findPendingByCartId(cartId);
+  async findPendingByCartId(
+    @Param('cartId') cartId: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.findPendingByCartId(cartId, organizationId);
   }
 
   @Get('cart/:cartId')
   @ApiOperation({ summary: 'Get all payments by cart ID' })
   @ApiParam({ name: 'cartId', description: 'Cart ID' })
   @ApiResponse({ status: 200, description: 'Payments retrieved successfully', type: [PaymentResponseDto] })
-  async findByCartId(@Param('cartId') cartId: string) {
-    const payments = await this.paymentService.findByCartId(cartId);
+  async findByCartId(
+    @Param('cartId') cartId: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    const payments = await this.paymentService.findByCartId(cartId, organizationId);
     return payments;
   }
 
@@ -89,8 +120,14 @@ export class PaymentController {
   @ApiParam({ name: 'id', description: 'Payment ID' })
   @ApiResponse({ status: 200, description: 'Payment retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  async findOne(@Param('id') id: string) {
-    return await this.paymentService.findById(id);
+  async findOne(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.findById(id, organizationId);
   }
 
   @Get(':id/receipt')
@@ -109,8 +146,15 @@ export class PaymentController {
     },
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  async downloadReceipt(@Param('id') id: string, @Res() res: Response) {
-    const pdfBuffer = await this.paymentService.generateReceipt(id);
+  async downloadReceipt(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+    @Res() res: Response,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    const pdfBuffer = await this.paymentService.generateReceipt(id, organizationId);
     
     res.set({
       'Content-Type': 'application/pdf',
@@ -129,8 +173,12 @@ export class PaymentController {
   async update(
     @Param('id') id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
+    @Headers('x-organization-id') organizationId: string,
   ) {
-    return await this.paymentService.update(id, updatePaymentDto);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.update(id, updatePaymentDto, organizationId);
   }
 
   @Patch(':id/status')
@@ -145,8 +193,12 @@ export class PaymentController {
   async updateStatus(
     @Param('id') id: string,
     @Body('status') status: PaymentStatus,
+    @Headers('x-organization-id') organizationId: string,
   ) {
-    return await this.paymentService.updateStatus(id, status);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.updateStatus(id, status, organizationId);
   }
 
   @Patch(':id/upload-proof')
@@ -160,8 +212,12 @@ export class PaymentController {
   async uploadProof(
     @Param('id') id: string,
     @Body() uploadProofDto: UploadProofDto,
+    @Headers('x-organization-id') organizationId: string,
   ) {
-    return await this.paymentService.uploadProof(id, uploadProofDto);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.uploadProof(id, uploadProofDto, organizationId);
   }
 
   @Post(':id/confirm')
@@ -173,8 +229,12 @@ export class PaymentController {
   async confirmPayment(
     @Param('id') id: string,
     @Body() confirmPaymentDto: ConfirmPaymentDto,
+    @Headers('x-organization-id') organizationId: string,
   ) {
-    return await this.paymentService.confirmPayment(id, confirmPaymentDto);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.confirmPayment(id, confirmPaymentDto, organizationId);
   }
 
   @Post(':id/cancel')
@@ -185,9 +245,13 @@ export class PaymentController {
   @ApiResponse({ status: 404, description: 'Payment not found' })
   async cancelPayment(
     @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
     @Body('reason') reason?: string,
   ) {
-    return await this.paymentService.cancelPayment(id, reason);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.cancelPayment(id, reason, organizationId);
   }
 
   @Post(':id/refund')
@@ -201,9 +265,13 @@ export class PaymentController {
   @ApiResponse({ status: 404, description: 'Payment not found' })
   async refundPayment(
     @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
     @Body('reason') reason?: string,
   ) {
-    return await this.paymentService.refundPayment(id, reason);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.refundPayment(id, reason, organizationId);
   }
 
   @Post(':id/webpay-timeout')
@@ -217,10 +285,14 @@ export class PaymentController {
   @ApiResponse({ status: 404, description: 'Payment not found' })
   async handleWebpayTimeout(
     @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
     @Body('buyOrder') buyOrder?: string,
     @Body('taskId') taskId?: string,
   ) {
-    return await this.paymentService.handleWebpayTimeout(id, buyOrder, taskId);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.handleWebpayTimeout(id, buyOrder, taskId, organizationId);
   }
 
   @Post('proof')
@@ -255,11 +327,16 @@ export class PaymentController {
   @UseInterceptors(FileInterceptor('file'))
   async createProofPayment(
     @Body() createProofPaymentDto: CreateProofPaymentDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Headers('x-organization-id') organizationId: string,
   ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
     return await this.paymentService.createProofPayment(
       createProofPaymentDto,
       file,
+      organizationId,
     );
   }
 
@@ -275,8 +352,12 @@ export class PaymentController {
   async validateProof(
     @Param('id') id: string,
     @Body() validateProofDto: ValidateProofDto,
+    @Headers('x-organization-id') organizationId: string,
   ) {
-    return await this.paymentService.validateProof(id, validateProofDto);
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    return await this.paymentService.validateProof(id, validateProofDto, organizationId);
   }
 
   @Delete(':id')
@@ -285,7 +366,13 @@ export class PaymentController {
   @ApiParam({ name: 'id', description: 'Payment ID' })
   @ApiResponse({ status: 204, description: 'Payment deleted successfully' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  async delete(@Param('id') id: string) {
-    await this.paymentService.delete(id);
+  async delete(
+    @Param('id') id: string,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException('El header X-Organization-ID es obligatorio');
+    }
+    await this.paymentService.delete(id, organizationId);
   }
 }
