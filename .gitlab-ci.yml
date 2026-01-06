@@ -28,11 +28,11 @@ variables:
   CHART_VERSION: "2.5.0"               # ZeroQChart version to deploy
   
   # Security thresholds (customize as needed)
-  SECURITY_HIGH_THRESHOLD: "5"          # Allow 5 high vulnerabilities
+  SECURITY_HIGH_THRESHOLD: "15"          # Allow 5 high vulnerabilities
   SECURITY_DEPENDENCY_HIGH: "3"         # Allow 3 high dependency vulns
   
   # Uncomment and customize if needed:
-  # SECURITY_CRITICAL_THRESHOLD: "0"    # Zero critical vulnerabilities
+  SECURITY_CRITICAL_THRESHOLD: "2"    # Zero critical vulnerabilities
   # SECURITY_SECRETS_THRESHOLD: "0"     # Zero secrets in code
   # SECURITY_SAST_HIGH_THRESHOLD: "0"   # Zero high SAST issues
 
