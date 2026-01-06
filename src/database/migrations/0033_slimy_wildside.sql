@@ -1,0 +1,1 @@
+ALTER TABLE "customization_fields" ADD COLUMN "minimum_amount" numeric(10, 2);

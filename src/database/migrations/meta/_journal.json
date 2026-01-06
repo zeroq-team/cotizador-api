@@ -232,6 +232,13 @@
       "when": 1767631998259,
       "tag": "0032_careful_blink",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1767701645968,
+      "tag": "0033_slimy_wildside",
+      "breakpoints": true
     }
   ]
 }

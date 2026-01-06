@@ -147,6 +147,12 @@ export class CustomizationFieldResponseDto {
   priceModifierType?: 'fixed' | 'percentage';
 
   @ApiPropertyOptional({ 
+    description: 'Monto mínimo de la cotización para que este campo sea visible/aplicable',
+    example: '100000'
+  })
+  minimumAmount?: string;
+
+  @ApiPropertyOptional({ 
     description: 'Configuración de UI'
   })
   uiConfig?: any;
