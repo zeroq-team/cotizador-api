@@ -18,7 +18,11 @@ import { PaymentService } from '../payments/payment.service';
 import { OrganizationPaymentMethodRepository } from '../organization/organization-payment-method.repository';
 import { webpayTimeoutTask } from '../trigger/webpay-timeout';
 import { runs } from '@trigger.dev/sdk/v3';
-import { PaymentStatus } from '../database/schemas';
+import { PaymentStatus, carts } from '../database/schemas';
+import { ConversationsService } from '../conversations/conversations.service';
+import { DatabaseService } from '../database/database.service';
+import { CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED } from '../config/configuration';
+import { eq } from 'drizzle-orm';
 
 // Importar SDK de Transbank
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -41,6 +45,8 @@ export class WebpayService {
     @Inject(forwardRef(() => PaymentService))
     private readonly paymentService: PaymentService,
     private readonly organizationPaymentMethodRepository: OrganizationPaymentMethodRepository,
+    private readonly conversationsService: ConversationsService,
+    private readonly databaseService: DatabaseService,
   ) {
     // Cargar configuración desde variables de entorno
     this.commerceCode = this.configService.get<string>('WEBPAY_COMMERCE_CODE');
@@ -430,6 +436,32 @@ export class WebpayService {
         }, payment.organizationId.toString());
 
         this.logger.log(`Pago ${payment.id} actualizado exitosamente`);
+
+        // Si el pago fue exitoso, actualizar customStatus de la conversación a "Venta completada"
+        if (isAuthorized && newStatus === 'completed') {
+          try {
+            const [cart] = await this.databaseService.db
+              .select({ conversationId: carts.conversationId })
+              .from(carts)
+              .where(eq(carts.id, payment.cartId))
+              .limit(1);
+
+            if (cart?.conversationId) {
+              await this.conversationsService.updateConversationCustomStatus(
+                cart.conversationId,
+                CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED,
+              );
+              this.logger.log(
+                `Conversación ${cart.conversationId} actualizada a "${CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED}"`,
+              );
+            }
+          } catch (error) {
+            this.logger.warn(
+              `Failed to update conversation customStatus after webpay commit: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+            // No lanzar error para no interrumpir el flujo del pago
+          }
+        }
         
         // La tarea de timeout ya fue cancelada al principio del método
       }

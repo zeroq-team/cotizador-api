@@ -19,6 +19,8 @@ import { S3Service } from '../s3/s3.service';
 import { PdfGeneratorService } from './services/pdf-generator.service';
 import { WebpayService } from '../webpay/webpay.service';
 import { DatabaseService } from '../database/database.service';
+import { ConversationsService } from '../conversations/conversations.service';
+import { CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED } from '../config/configuration';
 import { eq } from 'drizzle-orm';
 
 @Injectable()
@@ -32,6 +34,7 @@ export class PaymentService {
     @Inject(forwardRef(() => WebpayService))
     private webpayService: WebpayService,
     private databaseService: DatabaseService,
+    private conversationsService: ConversationsService,
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto, organizationId: string): Promise<Payment> {
@@ -322,6 +325,27 @@ export class PaymentService {
       throw new NotFoundException(`Payment with ID ${id} not found`);
     }
 
+    // Actualizar customStatus de la conversación a "Venta completada"
+    try {
+      const [cart] = await this.databaseService.db
+        .select({ conversationId: carts.conversationId })
+        .from(carts)
+        .where(eq(carts.id, existingPayment.cartId))
+        .limit(1);
+
+      if (cart?.conversationId) {
+        await this.conversationsService.updateConversationCustomStatus(
+          cart.conversationId,
+          CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to update conversation customStatus after payment confirmation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      // No lanzar error para no interrumpir el flujo del pago
+    }
+
     return updatedPayment;
   }
 
@@ -508,6 +532,27 @@ export class PaymentService {
 
       if (!updatedPayment) {
         throw new NotFoundException(`Payment with ID ${id} not found`);
+      }
+
+      // Actualizar customStatus de la conversación a "Venta completada"
+      try {
+        const [cart] = await this.databaseService.db
+          .select({ conversationId: carts.conversationId })
+          .from(carts)
+          .where(eq(carts.id, existingPayment.cartId))
+          .limit(1);
+
+        if (cart?.conversationId) {
+          await this.conversationsService.updateConversationCustomStatus(
+            cart.conversationId,
+            CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to update conversation customStatus after proof validation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
+        // No lanzar error para no interrumpir el flujo del pago
       }
 
       return updatedPayment;

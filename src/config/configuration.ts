@@ -1,3 +1,11 @@
+// Estados personalizados de conversación
+export const CONVERSATION_CUSTOM_STATUS_QUOTING =
+  process.env.CONVERSATION_CUSTOM_STATUS_QUOTING || 'Cotizando';
+
+
+export const CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED =
+  process.env.CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED || 'Venta completada';
+
 export default () => ({
   database: {
     url: process.env.DATABASE_URL,

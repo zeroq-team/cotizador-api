@@ -25,6 +25,7 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { PriceListsService } from '../price-lists/price-lists.service';
 import { OrganizationService } from '../organization/organization.service';
+import { CONVERSATION_CUSTOM_STATUS_QUOTING } from '../config/configuration';
 
 @Injectable()
 export class CartService {
@@ -147,6 +148,22 @@ export class CartService {
 
     // Emit real-time event
     this.cartGateway.emitCartUpdated(newCart.id, cartWithItems);
+
+    // Actualizar customStatus de la conversación a "Cotizando"
+    try {
+      await this.conversationsService.updateConversationCustomStatus(
+        conversationId,
+        CONVERSATION_CUSTOM_STATUS_QUOTING,
+      );
+      this.logger.log(
+        `Conversación ${conversationId} actualizada a "${CONVERSATION_CUSTOM_STATUS_QUOTING}"`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to update conversation customStatus after cart creation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      // No lanzar error para no interrumpir la creación del carrito
+    }
 
     return cartWithItems;
   }
@@ -973,6 +990,7 @@ export class CartService {
     );
 
     // Actualizar el estado de la conversación a 'Verificando pago'
+    // Nota: Este estado no está en la configuración porque es específico de este flujo
     await this.conversationsService.updateConversationCustomStatus(
       cart.conversationId,
       'Verificando pago',

@@ -6,9 +6,10 @@ import { PdfGeneratorService } from './services/pdf-generator.service';
 import { DatabaseModule } from '../database/database.module';
 import { S3Module } from '../s3/s3.module';
 import { WebpayModule } from '../webpay/webpay.module';
+import { ConversationsModule } from '../conversations/conversations.module';
 
 @Module({
-  imports: [DatabaseModule, S3Module, forwardRef(() => WebpayModule)],
+  imports: [DatabaseModule, S3Module, forwardRef(() => WebpayModule), ConversationsModule],
   controllers: [PaymentController],
   providers: [PaymentService, PaymentRepository, PdfGeneratorService],
   exports: [PaymentService, PaymentRepository],
