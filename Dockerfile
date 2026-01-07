@@ -1,8 +1,8 @@
 # Stage 1: Build
 FROM node:24-alpine AS builder
 
-# Instalar pnpm globalmente
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+# Instalar pnpm globalmente (actualizado a v10.x para corregir CVE-2024-47829)
+RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 # Establecer directorio de trabajo
 WORKDIR /app
@@ -25,8 +25,8 @@ RUN ls -la /app/dist/ && test -f /app/dist/src/main.js
 # Stage 2: Production
 FROM node:24-alpine AS production
 
-# Instalar pnpm globalmente
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+# Instalar pnpm globalmente (actualizado a v10.x para corregir CVE-2024-47829)
+RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 # Crear usuario no-root para seguridad
 RUN addgroup -g 1001 -S nodejs && \
@@ -38,9 +38,12 @@ WORKDIR /app
 # Copiar archivos de configuración de dependencias
 COPY package.json pnpm-lock.yaml ./
 
-# Instalar solo dependencias de producción
+# Instalar solo dependencias de producción y limpiar cachés para reducir vulnerabilidades
 RUN pnpm install --prod --frozen-lockfile && \
-    pnpm store prune
+    pnpm store prune && \
+    rm -rf /root/.cache/node/corepack && \
+    rm -rf /root/.npm && \
+    rm -rf /tmp/*
 
 # Copiar archivos compilados desde el stage de build
 COPY --from=builder /app/dist ./dist
