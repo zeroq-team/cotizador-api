@@ -132,11 +132,13 @@ topologySpreadConstraints:
 #   #       key: host
 
 env: 
+  # - name: DATABASE_URL
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: prd-shared-postgresql-eks-user-sm-secret
+  #       key: prd-shared-rds-pg-deploy-user
   - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: prd-shared-postgresql-eks-user-sm-secret
-        key: prd-shared-rds-pg-deploy-user
+    value: postgresql://postgres:0wci2ol250yhzhwttw3tvufel9pg2coc@shortline.proxy.rlwy.net:19075/prod
   - name: CONVERSATIONS_API_URL
     value: http://conversations-api/services/conversations
   - name: AWS_S3_BUCKET_NAME

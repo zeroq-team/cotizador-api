@@ -77,7 +77,7 @@ externalSecrets:
 # Environment variables for your application
 env:
   - name: DATABASE_URL
-    value: postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)
+    value: postgresql://postgres:0wci2ol250yhzhwttw3tvufel9pg2coc@shortline.proxy.rlwy.net:19075/qa
   # - name: DATABASE_HOST
   #   valueFrom:
   #     secretKeyRef:
