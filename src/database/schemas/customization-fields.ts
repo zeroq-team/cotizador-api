@@ -80,9 +80,6 @@ export const customizationFields = pgTable('customization_fields', {
   priceModifier: decimal('price_modifier', { precision: 10, scale: 2 }), // Monto fijo o porcentaje
   priceModifierType: text('price_modifier_type', { enum: ['fixed', 'percentage'] }),
   
-  // Monto mínimo para que el campo sea aplicable
-  minimumAmount: decimal('minimum_amount', { precision: 10, scale: 2 }), // Monto mínimo de la cotización para que este campo sea visible/aplicable
-  
   // Configuración UI
   uiConfig: jsonb('ui_config').$type<{
     columns?: number; // Ancho en grid (1-12)

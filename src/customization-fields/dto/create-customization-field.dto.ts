@@ -241,12 +241,6 @@ export class CreateCustomizationFieldDto {
   @IsEnum(['fixed', 'percentage'])
   priceModifierType?: 'fixed' | 'percentage';
 
-  // Monto mínimo para que el campo sea aplicable
-  @ApiPropertyOptional({ description: 'Monto mínimo de la cotización para que este campo sea visible/aplicable', example: 100000 })
-  @IsOptional()
-  @IsDecimal()
-  minimumAmount?: string;
-
   // Configuración UI
   @ApiPropertyOptional({ description: 'Configuración de UI', type: UIConfigDto })
   @IsOptional()

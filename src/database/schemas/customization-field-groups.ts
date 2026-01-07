@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, integer, timestamp, uuid, decimal } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { relations } from 'drizzle-orm';
 import { customizationFields } from './customization-fields';
@@ -23,6 +23,9 @@ export const customizationFieldGroups = pgTable('customization_field_groups', {
   // Configuración
   sortOrder: integer('sort_order').default(0), // Orden de visualización
   isActive: boolean('is_active').default(true), // Si el grupo está activo
+  
+  // Monto mínimo para que el grupo sea aplicable
+  minimumAmount: decimal('minimum_amount', { precision: 10, scale: 2 }), // Monto mínimo de la cotización para que este grupo sea visible/aplicable
   
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
