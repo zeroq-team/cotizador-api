@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { ROUTES_PREFIX } from './config/configuration';
 
 // Validar variables de entorno críticas ANTES de inicializar la aplicación
 if (!process.env.TRIGGER_SECRET_KEY) {
@@ -105,8 +106,16 @@ async function bootstrap() {
       defaultModelExpandDepth: 2,
     },
   });
+
+  SwaggerModule.setup(ROUTES_PREFIX + '/docs', app, document);
+  app.setGlobalPrefix(ROUTES_PREFIX, {
+    exclude: ['health', 'metrics'],
+  });
+
   await app.listen(process.env.PORT ?? 3002);
 }
+
+
 
 bootstrap().catch((error) => {
   console.error('\n');

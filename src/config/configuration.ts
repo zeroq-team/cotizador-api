@@ -21,3 +21,5 @@ export default () => ({
     returnBaseUrl: process.env.WEBPAY_RETURN_BASE_URL,
   },
 });
+
+export const ROUTES_PREFIX = process.env.ROUTES_PREFIX || 'services/quotation-api';
