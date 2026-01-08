@@ -40,15 +40,51 @@ export class S3Service {
     this.imagesFolder =
       this.configService.get<string>('AWS_S3_IMAGES_FOLDER') || 'images';
 
+    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get<string>(
+      'AWS_SECRET_ACCESS_KEY',
+    );
+
+    if (!accessKeyId || !secretAccessKey) {
+      console.warn(
+        'AWS credentials not fully configured. S3 operations may fail.',
+      );
+    }
+
+    if (!this.bucketName) {
+      console.warn('AWS_S3_BUCKET_NAME not configured. S3 operations may fail.');
+    }
+
     this.client = new S3Client({
       region: this.region,
       credentials: {
-        accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID'),
-        secretAccessKey: this.configService.get<string>(
-          'AWS_SECRET_ACCESS_KEY',
-        ),
+        accessKeyId: accessKeyId || '',
+        secretAccessKey: secretAccessKey || '',
       },
+      // Asegurar que use signature v4
+      forcePathStyle: false,
     });
+  }
+
+  /**
+   * Sanitiza metadatos para S3 (solo ASCII imprimibles, sin caracteres especiales)
+   */
+  private sanitizeMetadata(
+    metadata?: Record<string, string>,
+  ): Record<string, string> | undefined {
+    if (!metadata) return undefined;
+
+    const sanitized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(metadata)) {
+      // Sanitizar clave: solo letras, números, guiones y guiones bajos
+      const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+      // Sanitizar valor: solo ASCII imprimibles
+      const sanitizedValue = value
+        .replace(/[^\x20-\x7E]/g, '')
+        .substring(0, 1024); // S3 tiene límite de 2KB por metadata, pero limitamos a 1024 chars por valor
+      sanitized[sanitizedKey] = sanitizedValue;
+    }
+    return sanitized;
   }
 
   /**
@@ -61,16 +97,34 @@ export class S3Service {
     metadata?: Record<string, string>,
   ): Promise<UploadResult> {
     try {
+      // Validar que bucketName esté configurado
+      if (!this.bucketName) {
+        throw new Error('AWS_S3_BUCKET_NAME is not configured');
+      }
 
-      if (contentType === 'image/jpeg') {
+      // Validar credenciales
+      const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+      const secretAccessKey = this.configService.get<string>(
+        'AWS_SECRET_ACCESS_KEY',
+      );
+      if (!accessKeyId || !secretAccessKey) {
+        throw new Error('AWS credentials are not configured');
+      }
+
+      // Sanitizar metadatos
+      const sanitizedMetadata = this.sanitizeMetadata(metadata);
+
+      // Agregar prefijo de carpeta para imágenes
+      if (contentType.startsWith('image/')) {
         key = this.imagesFolder + '/' + key;
       }
+
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: file,
         ContentType: contentType,
-        Metadata: metadata,
+        Metadata: sanitizedMetadata,
       });
 
       await this.client.send(command);
@@ -99,11 +153,12 @@ export class S3Service {
     folder: string,
     filename: string,
     metadata?: Record<string, string>,
+    contentType: string = 'image/jpeg',
   ): Promise<UploadResult> {
     const timestamp = Date.now();
     const key = `${folder}/${timestamp}-${filename}`;
 
-    return this.uploadFile(file, key, 'image/jpeg', {
+    return this.uploadFile(file, key, contentType, {
       ...metadata,
       'uploaded-at': new Date().toISOString(),
     });
