@@ -417,9 +417,20 @@ export class PaymentService {
     let proofUrl = createProofPaymentDto.proofUrl;
     // If file is provided, upload to S3
     if (file) {
-      // Validate file type
-      if (!file.mimetype.startsWith('image/')) {
-        throw new BadRequestException('Only image files are allowed');
+      // Validate file type (images and PDFs allowed)
+      const allowedMimeTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/bmp',
+        'image/svg+xml',
+        'application/pdf',
+      ];
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        throw new BadRequestException(
+          'Only image files (JPEG, PNG, GIF, WebP, BMP, SVG) and PDFs are allowed',
+        );
       }
 
       // Validate file size (max 5MB)
@@ -429,7 +440,9 @@ export class PaymentService {
       }
 
       const timestamp = Date.now();
-      const filename = `${timestamp}-${file.originalname}`;
+      const parts = file.originalname.split('.');
+      const extension = parts.length > 1 ? parts.pop() : 'jpg';
+      const filename = `${timestamp}.${extension}`;
       const folder = `payment-proofs/${createProofPaymentDto.cartId}`;
       const key = `${folder}/${filename}`;
 
