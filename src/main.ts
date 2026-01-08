@@ -107,10 +107,10 @@ async function bootstrap() {
     },
   });
 
-  SwaggerModule.setup(ROUTES_PREFIX + '/docs', app, document);
-  app.setGlobalPrefix(ROUTES_PREFIX, {
-    exclude: ['health', 'metrics'],
-  });
+  // SwaggerModule.setup(ROUTES_PREFIX + '/docs', app, document);
+  // app.setGlobalPrefix(ROUTES_PREFIX, {
+  //   exclude: ['health', 'metrics'],
+  // });
 
   await app.listen(process.env.PORT ?? 3002);
 }

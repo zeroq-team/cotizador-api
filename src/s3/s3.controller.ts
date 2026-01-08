@@ -81,10 +81,11 @@ export class S3Controller {
       ? `customizations/${cartId}`
       : 'customizations/general';
 
-    // Generar nombre de archivo único
+    // Generar nombre de archivo único (solo timestamp y extensión, sin nombre original)
     const timestamp = Date.now();
-    const sanitizedFilename = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const filename = `${timestamp}-${sanitizedFilename}`;
+    const parts = file.originalname.split('.');
+    const extension = parts.length > 1 ? parts.pop() : 'jpg';
+    const filename = `${timestamp}.${extension}`;
 
     // Subir a S3
     const result = await this.s3Service.uploadImage(
@@ -94,9 +95,9 @@ export class S3Controller {
       {
         'cart-id': cartId || 'unknown',
         'field-name': fieldName || 'unknown',
-        'content-type': file.mimetype,
         'original-name': file.originalname,
       },
+      file.mimetype, // Pasar el contentType correcto
     );
 
     if (!result.success) {
