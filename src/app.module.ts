@@ -16,6 +16,7 @@ import { PriceListConditionsModule } from './price-list-conditions/price-list-co
 import configuration from './config/configuration';
 import { CustomizationFieldGroupModule } from './customization-field-groups/customization-field-group.module';
 import { ChileLocationsModule } from './chile-locations/chile-locations.module';
+import { PdfModule } from './pdf/pdf.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ChileLocationsModule } from './chile-locations/chile-locations.module';
     PaymentModule,
     OrganizationModule,
     ChileLocationsModule,
+    PdfModule,
   ],
   controllers: [AppController],
   providers: [AppService, ConversationsService],
