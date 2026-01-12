@@ -8,7 +8,7 @@ export const webpayTimeoutTask = task({
     payload: {
       paymentId: string;
       buyOrder: string;
-      cartId: string;
+      organizationId: number;
     },
     { ctx },
   ) => {
@@ -28,11 +28,19 @@ export const webpayTimeoutTask = task({
         `Enviando timeout con taskId: ${taskId} para pago ${payload.paymentId}`,
       );
 
+      logger.info(`baseUrl: ${baseUrl}`);
+      logger.info(`payload: ${JSON.stringify(payload)}`);
+
       const response = await axios.post(
         `${baseUrl}/payments/${payload.paymentId}/webpay-timeout`,
         {
           buyOrder: payload.buyOrder,
           taskId, // ID del run/task para trazabilidad
+        },
+        {
+          headers: {
+            'x-organization-id': payload.organizationId,
+          },
         },
       );
 
