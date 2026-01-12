@@ -74,8 +74,10 @@ export class WebpayService {
    */
   private getMallTransaction() {
     if (this.environment === 'production') {
+      this.logger.log('Creando instancia de MallTransaction en producción');
       return new WebpayPlus.MallTransaction(this.commerceCode, this.apiKey);
     } else {
+      this.logger.log('Creando instancia de MallTransaction en integración');
       return WebpayPlus.MallTransaction.buildForIntegration(
         this.commerceCode,
         this.apiKey,
@@ -223,6 +225,7 @@ export class WebpayService {
       this.logger.log(`Pago creado en BD: ${payment.id}`);
 
       // PASO 4: Crear instancia de MallTransaction
+      this.logger.log('Creando instancia de MallTransaction, api key: ' + this.apiKey);
       const mallTransaction = this.getMallTransaction();
 
       // URL de retorno (incluir cartId y paymentId para actualizar después)
