@@ -29,7 +29,7 @@ import { eq } from 'drizzle-orm';
 const { WebpayPlus, TransactionDetail } = require('transbank-sdk');
 
 // Tiempo de timeout para transacciones WebPay (3 minutos)
-const WEBPAY_TIMEOUT_MINUTES = 3;
+const WEBPAY_TIMEOUT_MINUTES = 4;
 
 @Injectable()
 export class WebpayService {
