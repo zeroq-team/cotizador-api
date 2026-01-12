@@ -74,10 +74,8 @@ export class WebpayService {
    */
   private getMallTransaction() {
     if (this.environment === 'production') {
-      this.logger.log('Creando instancia de MallTransaction en producción');
-      return new WebpayPlus.MallTransaction(this.commerceCode, this.apiKey);
+      return new WebpayPlus.MallTransaction.buildForProduction(this.commerceCode, this.apiKey);
     } else {
-      this.logger.log('Creando instancia de MallTransaction en integración');
       return WebpayPlus.MallTransaction.buildForIntegration(
         this.commerceCode,
         this.apiKey,
@@ -176,11 +174,6 @@ export class WebpayService {
 
       const webPayPrefix = orgPaymentMethod.webPayPrefix || 'zeroq';
       const childCommerceCode = orgPaymentMethod.webPayChildCommerceCode;
-
-      this.logger.debug(
-        `WebPay config - Prefix: ${webPayPrefix}, Child Commerce: ${childCommerceCode}`,
-      );
-
       // PASO 1.5: Verificar si ya existe un pago pendiente para este carrito
       this.logger.log(`Verificando si existe un pago pendiente para cart ${cartId}...`);
       const existingPendingPayment = await this.paymentService.findPendingPaymentByCartId(cartId, organizationId.toString());
@@ -225,7 +218,6 @@ export class WebpayService {
       this.logger.log(`Pago creado en BD: ${payment.id}`);
 
       // PASO 4: Crear instancia de MallTransaction
-      this.logger.log('Creando instancia de MallTransaction, api key: ' + this.apiKey);
       const mallTransaction = this.getMallTransaction();
 
       // URL de retorno (incluir cartId y paymentId para actualizar después)
