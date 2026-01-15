@@ -16,6 +16,8 @@ import { Logger } from '@nestjs/common'
     credentials: false,
   },
   namespace: '/carts',
+  transports: ['websocket', 'polling'],
+  allowEIO3: true, // Compatibilidad con clientes Engine.IO 3
 })
 export class CartGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

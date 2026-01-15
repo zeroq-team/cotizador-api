@@ -52,6 +52,7 @@ async function bootstrap() {
       'X-Requested-With',
       'Cache-Control',
       'X-Organization-ID',
+      'x-api-key'
     ],
     exposedHeaders: ['Content-Length', 'Content-Type'],
     credentials: false, // Importante: false cuando se permite cualquier origen
@@ -114,7 +115,6 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3002);
 }
-
 
 
 bootstrap().catch((error) => {
