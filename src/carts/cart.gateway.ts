@@ -12,12 +12,19 @@ import { Logger } from '@nestjs/common'
 
 @WebSocketGateway({
   cors: {
-    origin: true, // Permite cualquier origen
+    origin: true, // Permite cualquier origen (incluye dominios de producción)
     credentials: false,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   },
   namespace: '/carts',
   transports: ['websocket', 'polling'],
   allowEIO3: true, // Compatibilidad con clientes Engine.IO 3
+  // Path por defecto de Socket.IO - funciona con path prefix del ingress
+  path: '/socket.io',
+  // Configuración adicional para producción
+  pingTimeout: 60000, // 60 segundos
+  pingInterval: 25000, // 25 segundos
 })
 export class CartGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

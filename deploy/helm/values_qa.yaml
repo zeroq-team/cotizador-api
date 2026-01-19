@@ -33,6 +33,24 @@ ingressRoute:
   host: qa.zeroq.cl
   paths:
     - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
+  # Middlewares para habilitar WebSockets en Traefik
+  middlewares:
+    # Middleware para WebSockets - permite upgrade de conexión
+    websocket:
+      enabled: true
+      # Configuración de headers para WebSocket upgrade
+      headers:
+        customRequestHeaders:
+          Connection: "upgrade"
+        customResponseHeaders:
+          X-WebSocket-Enabled: "true"
+      # Timeouts extendidos para conexiones WebSocket
+      buffering:
+        maxRequestBodyBytes: 10485760  # 10MB
+        maxResponseBodyBytes: 10485760  # 10MB
+        memRequestBodyBytes: 2097152  # 2MB
+        memResponseBodyBytes: 2097152  # 2MB
+        retryExpression: "IsNetworkError() && Attempts() < 2"
 
 # Resource limits for QA (production-like)
 resources:
@@ -78,23 +96,6 @@ externalSecrets:
 env:
   - name: DATABASE_URL
     value: postgresql://postgres:0wci2ol250yhzhwttw3tvufel9pg2coc@shortline.proxy.rlwy.net:19075/qa
-  # - name: DATABASE_HOST
-  #   valueFrom:
-  #     secretKeyRef:
-  #       key: host
-  #       name: qa-shared-rds-pg-deploy-host
-  # - name: DATABASE_USER
-  #   valueFrom:
-  #       secretKeyRef:
-  #       key: user
-  #       name: qa-shared-rds-pg-deploy-user
-  # - name: DATABASE_PASSWORD
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: qa-shared-rds-pg-deploy-user
-  #       key: password
-  # - name: DATABASE_NAME
-  #   value: qa
 
   ## aws
   - name: AWS_REGION
@@ -133,7 +134,7 @@ env:
         name: qa-shared-eks-quotation-api-webpay-credentials-sm-secret
         key: WEBPAY_API_KEY
   - name: WEBPAY_RETURN_BASE_URL
-    value: https://cotizador-ia-env-qa-zero-q.vercel.app
+    value: https://qa.zeroq.cl/quoter
 
   ## trigger.dev
   - name: TRIGGER_SECRET_KEY
