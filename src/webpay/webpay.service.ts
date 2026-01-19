@@ -23,6 +23,7 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { DatabaseService } from '../database/database.service';
 import { CONVERSATION_CUSTOM_STATUS_SALE_COMPLETED } from '../config/configuration';
 import { eq } from 'drizzle-orm';
+import { Payment } from '../database/schemas/payments';
 
 // Importar SDK de Transbank
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -145,6 +146,10 @@ export class WebpayService {
       `Creando transacción WebPay para cart ${cartId}, org ${organizationId}`,
     );
 
+    /* The above code is declaring a variable `payment` with the type `Payment` or `null`. This means
+    that `payment` can either hold an object of type `Payment` or a value of `null`. */
+    let payment: Payment | undefined = undefined;
+
     try {
       // PASO 1: Obtener configuración de WebPay desde la BD
       const orgPaymentMethod =
@@ -203,7 +208,7 @@ export class WebpayService {
       // PASO 3: Crear registro del pago en estado "pending" ANTES de ir a WebPay
       this.logger.log('Creando registro de pago en BD (status: pending)...');
 
-      const payment = await this.paymentService.create({
+      payment = await this.paymentService.create({
         cartId,
         amount,
         paymentType: 'webpay',
@@ -307,6 +312,10 @@ export class WebpayService {
       };
     } catch (error) {
       this.logger.error('Error al crear transacción WebPay:', error);
+
+      if (payment) {
+        await this.paymentService.delete(payment.id, payment.organizationId.toString());
+      }
 
       // Si es una excepción HTTP de NestJS, dejarla pasar sin modificar
       if (
