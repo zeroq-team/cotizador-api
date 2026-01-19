@@ -30,6 +30,8 @@ ingressRoute:
   host: dev.zeroq.cl
   paths:
     - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
+  # Nota: Traefik detecta automáticamente conexiones WebSocket basándose en los headers
+  # Upgrade: websocket y Connection: upgrade. No se requiere middleware adicional.
 
 # Basic resource limits for development
 resources:

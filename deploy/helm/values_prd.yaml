@@ -33,6 +33,8 @@ ingressRoute:
   host: api.zeroq.cl
   paths:
     - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
+  # Nota: Traefik detecta automáticamente conexiones WebSocket basándose en los headers
+  # Upgrade: websocket y Connection: upgrade. No se requiere middleware adicional.
 
 # Production resource limits
 resources:
@@ -132,23 +134,48 @@ topologySpreadConstraints:
 #   #       key: host
 
 env: 
-  # - name: DATABASE_URL
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: prd-shared-postgresql-eks-user-sm-secret
-  #       key: prd-shared-rds-pg-deploy-user
   - name: DATABASE_URL
     value: postgresql://postgres:0wci2ol250yhzhwttw3tvufel9pg2coc@shortline.proxy.rlwy.net:19075/prod
+  
   - name: CONVERSATIONS_API_URL
     value: http://conversations-api/services/conversations
+  
+  ## aws
   - name: AWS_S3_BUCKET_NAME
     value: dev-dynamic-quote-us-east-2-181276599638
+  - name: AWS_REGION
+    value: us-east-2
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom: 
+      secretKeyRef:
+        name: prd-shared-eks-quotation-api-aws-access-sm-secret
+        key: AWS_ACCESS_KEY_ID
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: prd-shared-eks-quotation-api-aws-access-sm-secret
+        key: AWS_SECRET_ACCESS_KEY
+
+  ## cloud front
+  - name: CLOUD_FRONT_DOMAIN
+    value: https://d3umbno2snuojo.cloudfront.net
+  
+  ## products api
   - name: PRODUCTS_API_URL
     value: https://y2g52fo88c.execute-api.us-east-2.amazonaws.com/v1/v1
+  
+  ## webpay
   - name: WEBPAY_COMMERCE_CODE
     value: 597055555535
   - name: WEBPAY_RETURN_BASE_URL
-    value: https://cotizador-ia-two.vercel.app
+    value: https://zeroq.cl/quoter
+
+  ## trigger.dev
+  - name: TRIGGER_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: prd-shared-eks-quotation-api-cronjob-apikey-sm-secret
+        key: TRIGGER_SECRET_KEY
 
 # Extra labels and annotations
 # extraLabels: {}

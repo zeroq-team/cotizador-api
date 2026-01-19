@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets'
 import { Server, Socket } from 'socket.io'
 import { Logger } from '@nestjs/common'
+import { ROUTES_PREFIX } from '../config/configuration'
 
 @WebSocketGateway({
   cors: {
@@ -20,8 +21,8 @@ import { Logger } from '@nestjs/common'
   namespace: '/carts',
   transports: ['websocket', 'polling'],
   allowEIO3: true, // Compatibilidad con clientes Engine.IO 3
-  // Path por defecto de Socket.IO - funciona con path prefix del ingress
-  path: '/socket.io',
+  // Path incluyendo el ROUTES_PREFIX para que coincida con el global prefix
+  path: `/${ROUTES_PREFIX}/socket.io`,
   // Configuración adicional para producción
   pingTimeout: 60000, // 60 segundos
   pingInterval: 25000, // 25 segundos
