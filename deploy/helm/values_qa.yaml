@@ -33,24 +33,8 @@ ingressRoute:
   host: qa.zeroq.cl
   paths:
     - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
-  # Middlewares para habilitar WebSockets en Traefik
-  middlewares:
-    # Middleware para WebSockets - permite upgrade de conexión
-    websocket:
-      enabled: true
-      # Configuración de headers para WebSocket upgrade
-      headers:
-        customRequestHeaders:
-          Connection: "upgrade"
-        customResponseHeaders:
-          X-WebSocket-Enabled: "true"
-      # Timeouts extendidos para conexiones WebSocket
-      buffering:
-        maxRequestBodyBytes: 10485760  # 10MB
-        maxResponseBodyBytes: 10485760  # 10MB
-        memRequestBodyBytes: 2097152  # 2MB
-        memResponseBodyBytes: 2097152  # 2MB
-        retryExpression: "IsNetworkError() && Attempts() < 2"
+  # Nota: Traefik detecta automáticamente conexiones WebSocket basándose en los headers
+  # Upgrade: websocket y Connection: upgrade. No se requiere middleware adicional.
 
 # Resource limits for QA (production-like)
 resources:
