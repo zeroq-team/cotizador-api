@@ -1304,10 +1304,12 @@ export class CartService {
 
       // Agregar el campo enriquecido con precio e información de impuestos
       if (fieldPrice > 0) {
-        // Calcular precio con IVA si corresponde
-        const priceWithTax = chargeTax 
-          ? Math.round(fieldPrice * (1 + this.TAX_RATE))
-          : fieldPrice;
+        // Calcular precio con IVA según si se cobra o no
+        // si se cobra IVA, agregar IVA al precio base
+        // si no se cobra IVA, usar el precio base
+        const priceWithTax = chargeTax
+          ? Math.round(fieldPrice * (1 + this.TAX_RATE)) // Agregar IVA al precio base
+          : fieldPrice; // Usar el precio base
         
         enrichedValues[field.name] = {
           value: fieldValue,
