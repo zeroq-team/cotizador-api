@@ -65,12 +65,11 @@ export class CartRepository {
 
   async findByIdWithItems(
     id: string,
-  ): Promise<(Cart & { items: CartItemRecord[]; customer?: Customer | null }) | null> {
+  ): Promise<(Cart & { items: CartItemRecord[] }) | null> {
     const result = await this.databaseService.db
       .select()
       .from(carts)
       .leftJoin(cartItems, eq(cartItems.cartId, carts.id))
-      .leftJoin(customers, eq(customers.id, carts.customerId))
       .orderBy(asc(cartItems.createdAt))
       .where(eq(carts.id, id));
 
@@ -79,31 +78,11 @@ export class CartRepository {
     }
 
     const cart = result[0].carts;
-    const customer = result[0].customers || null;
     const items = result
       .filter((row) => row.cart_items)
       .map((row) => row.cart_items!);
 
-    // If customer exists, load delivery addresses (excluding deleted ones)
-    let customerWithAddresses = customer;
-    if (customer) {
-      const addresses = await this.databaseService.db
-        .select()
-        .from(deliveryAddresses)
-        .where(
-          and(
-            eq(deliveryAddresses.customerId, customer.id),
-            isNull(deliveryAddresses.deletedAt),
-          ),
-        );
-      
-      customerWithAddresses = {
-        ...customer,
-        deliveryAddresses: addresses,
-      } as any;
-    }
-
-    return { ...cart, items, customer: customerWithAddresses };
+    return { ...cart, items };
   }
 
   async findByConversationId(conversationId: string): Promise<Cart | null> {

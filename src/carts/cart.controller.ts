@@ -13,9 +13,7 @@ import {
   UploadedFile,
   UseInterceptors,
   Headers,
-  BadRequestException,
-  Res,
-  StreamableFile,
+  BadRequestException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -25,24 +23,19 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
-  ApiConsumes,
-  ApiProduces,
+  ApiConsumes
 } from '@nestjs/swagger';
-import { Response } from 'express';
 import { CartService } from './cart.service';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { PatchCartDto } from './dto/patch-cart.dto';
 import { UpdateCustomizationDto } from './dto/update-customization.dto';
-import { UpdateCustomerDataDto } from './dto/update-customer-data.dto';
-import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
-import { SearchCustomerByPhoneDto } from './dto/search-customer-by-phone.dto';
 import { AddPaymentProofDto } from './dto/responses/add-payment-proof.dto';
 import { CartResponseDto } from './dto/responses/cart-response.dto';
 import { QuoteListItemDto } from './dto/responses/quote-list-item.dto';
 import { ChangelogItemResponseDto } from './dto/responses/changelog-item-response.dto';
 import { CartSuggestionResponseDto } from './dto/responses/cart-suggestion-response.dto';
-import { CreateCartSuggestionDto, CreateCartSuggestionsDto } from './dto/create-cart-suggestion.dto';
+import { CreateCartSuggestionsDto } from './dto/create-cart-suggestion.dto';
 import { PaymentResponseDto } from '../payments/dto/payment-response.dto';
 
 @ApiTags('carts')
@@ -245,140 +238,6 @@ export class CartController {
     };
   }
 
-  @ApiOperation({
-    summary: 'Buscar cliente por teléfono',
-    description: 'Busca un cliente existente por código de país y número telefónico en la organización',
-  })
-  @ApiQuery({ name: 'phoneCode', description: 'Código de país (ej: +56, +1)', required: true })
-  @ApiQuery({ name: 'phoneNumber', description: 'Número telefónico sin código', required: true })
-  @ApiResponse({ status: 200, description: 'Cliente encontrado' })
-  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
-  @Get('customer/search')
-  async searchCustomerByPhone(
-    @Query() searchDto: SearchCustomerByPhoneDto,
-    @Headers('x-organization-id') organizationId: string,
-  ) {
-    if (!organizationId) {
-      throw new BadRequestException('El header X-Organization-ID es obligatorio');
-    }
-    const customer = await this.cartService.findCustomerByPhone(
-      parseInt(organizationId),
-      searchDto.phoneCode,
-      searchDto.phoneNumber,
-    );
-    if (!customer) {
-      throw new BadRequestException('Cliente no encontrado');
-    }
-    return customer;
-  }
-
-  @ApiOperation({
-    summary: 'Actualizar datos del cliente y dirección de entrega',
-    description: 'Actualiza los datos del cliente y su dirección de entrega',
-  })
-  @ApiParam({ name: 'id', description: 'ID único del carrito' })
-  @ApiBody({ type: UpdateCustomerDataDto })
-  @ApiResponse({ status: 200, description: 'Datos del cliente actualizados', type: CartResponseDto })
-  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
-  @Patch(':id/customer-data')
-  async updateCustomerData(
-    @Param('id') id: string,
-    @Body() updateCustomerDataDto: UpdateCustomerDataDto,
-  ) {
-    const cart = await this.cartService.updateCustomerData(id, updateCustomerDataDto);
-    return {
-      id: cart.id,
-      items: cart.items.map((item) => ({
-        ...item,
-        price: parseFloat(item.price.toString()),
-      })),
-      totalItems: cart.totalItems,
-      totalPrice: parseFloat(cart.totalPrice),
-      customer: cart.customer,
-    };
-  }
-
-  @ApiOperation({
-    summary: 'Crear nueva dirección de entrega',
-    description: 'Crea una nueva dirección de entrega para el cliente del carrito',
-  })
-  @ApiParam({ name: 'id', description: 'ID único del carrito' })
-  @ApiBody({ type: UpdateDeliveryAddressDto })
-  @ApiResponse({ status: 201, description: 'Dirección creada', type: CartResponseDto })
-  @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
-  @HttpCode(HttpStatus.CREATED)
-  @Post(':id/delivery-address')
-  async createDeliveryAddress(
-    @Param('id') id: string,
-    @Body() createAddressDto: UpdateDeliveryAddressDto,
-  ) {
-
-    const cart = await this.cartService.createDeliveryAddress(id, createAddressDto);
-    return {
-      id: cart.id,
-      items: cart.items.map((item) => ({
-        ...item,
-        price: parseFloat(item.price.toString()),
-      })),
-      totalItems: cart.totalItems,
-      totalPrice: parseFloat(cart.totalPrice),
-      customer: cart.customer,
-    };
-  }
-
-  @ApiOperation({
-    summary: 'Actualizar dirección de entrega',
-    description: 'Actualiza una dirección de entrega específica del cliente',
-  })
-  @ApiParam({ name: 'id', description: 'ID único del carrito' })
-  @ApiParam({ name: 'addressId', description: 'ID único de la dirección de entrega' })
-  @ApiBody({ type: UpdateDeliveryAddressDto })
-  @ApiResponse({ status: 200, description: 'Dirección actualizada', type: CartResponseDto })
-  @ApiResponse({ status: 404, description: 'Carrito o dirección no encontrada' })
-  @Patch(':id/delivery-address/:addressId')
-  async updateDeliveryAddress(
-    @Param('id') id: string,
-    @Param('addressId') addressId: string,
-    @Body() updateAddressDto: UpdateDeliveryAddressDto,
-  ) {
-    const cart = await this.cartService.updateDeliveryAddress(id, addressId, updateAddressDto);
-    return {
-      id: cart.id,
-      items: cart.items.map((item) => ({
-        ...item,
-        price: parseFloat(item.price.toString()),
-      })),
-      totalItems: cart.totalItems,
-      totalPrice: parseFloat(cart.totalPrice),
-      customer: cart.customer,
-    };
-  }
-
-  @ApiOperation({
-    summary: 'Eliminar dirección de entrega',
-    description: 'Elimina (soft delete) una dirección de entrega del cliente',
-  })
-  @ApiParam({ name: 'id', description: 'ID único del carrito' })
-  @ApiParam({ name: 'addressId', description: 'ID único de la dirección de entrega' })
-  @ApiResponse({ status: 200, description: 'Dirección eliminada', type: CartResponseDto })
-  @ApiResponse({ status: 404, description: 'Carrito o dirección no encontrada' })
-  @Delete(':id/delivery-address/:addressId')
-  async deleteDeliveryAddress(
-    @Param('id') id: string,
-    @Param('addressId') addressId: string,
-  ) {
-    const cart = await this.cartService.deleteDeliveryAddress(id, addressId);
-    return {
-      id: cart.id,
-      items: cart.items.map((item) => ({
-        ...item,
-        price: parseFloat(item.price.toString()),
-      })),
-      totalItems: cart.totalItems,
-      totalPrice: parseFloat(cart.totalPrice),
-      customer: cart.customer,
-    };
-  }
 
   @ApiOperation({
     summary: 'Obtener historial de cambios',

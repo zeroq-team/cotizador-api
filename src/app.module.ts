@@ -17,6 +17,7 @@ import configuration from './config/configuration';
 import { CustomizationFieldGroupModule } from './customization-field-groups/customization-field-group.module';
 import { ChileLocationsModule } from './chile-locations/chile-locations.module';
 import { PdfModule } from './pdf/pdf.module';
+import { CustomerModule } from './customers/customer.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PdfModule } from './pdf/pdf.module';
     OrganizationModule,
     ChileLocationsModule,
     PdfModule,
+    CustomerModule,
   ],
   controllers: [AppController],
   providers: [AppService, ConversationsService],

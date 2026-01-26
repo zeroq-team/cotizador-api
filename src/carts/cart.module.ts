@@ -4,9 +4,8 @@ import { CartController } from './cart.controller';
 import { CartRepository } from './cart.repository';
 import { CartChangelogRepository } from './cart-changelog.repository';
 import { CartSuggestionsRepository } from './cart-suggestions.repository';
-import { CustomerRepository } from './customer.repository';
-import { DeliveryAddressRepository } from './delivery-address.repository';
 import { CartGateway } from './cart.gateway';
+import { CustomerModule } from '../customers/customer.module';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { DatabaseModule } from '../database/database.module';
 import { ProductsModule } from '../products/products.module';
@@ -17,15 +16,13 @@ import { OrganizationModule } from '../organization/organization.module';
 import { CustomizationFieldModule } from '../customization-fields/customization-field.module';
 
 @Module({
-  imports: [DatabaseModule, ProductsModule, PaymentModule, PriceListsModule, OrganizationModule, CustomizationFieldModule],
+  imports: [DatabaseModule, ProductsModule, PaymentModule, PriceListsModule, OrganizationModule, CustomizationFieldModule, CustomerModule],
   controllers: [CartController],
   providers: [
     CartService,
     CartRepository,
     CartChangelogRepository,
     CartSuggestionsRepository,
-    CustomerRepository,
-    DeliveryAddressRepository,
     CartGateway,
     ConversationsService,
     PriceListEvaluationService,
