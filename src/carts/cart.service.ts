@@ -984,7 +984,7 @@ export class CartService {
   }
 
   /**
-   * Agrega un pago con comprobante al carrito y actualiza el estado a 'Verificando pago'
+   * Agrega un pago con comprobante al carrito
    */
   async addPaymentWithProof(
     cartId: string,
@@ -1001,13 +1001,6 @@ export class CartService {
       { ...createProofPaymentDto, cartId },
       file,
       cart.organizationId.toString(),
-    );
-
-    // Actualizar el estado de la conversación a 'Verificando pago'
-    // Nota: Este estado no está en la configuración porque es específico de este flujo
-    await this.conversationsService.updateConversationCustomStatus(
-      cart.conversationId,
-      'Verificando pago',
     );
 
     return payment;

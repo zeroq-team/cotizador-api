@@ -30,7 +30,7 @@ import { Payment } from '../database/schemas/payments';
 const { WebpayPlus, TransactionDetail } = require('transbank-sdk');
 
 // Tiempo de timeout para transacciones WebPay (3 minutos)
-const WEBPAY_TIMEOUT_MINUTES = 3;
+const WEBPAY_TIMEOUT_MINUTES = 4;
 
 @Injectable()
 export class WebpayService {
@@ -75,7 +75,7 @@ export class WebpayService {
    */
   private getMallTransaction() {
     if (this.environment === 'production') {
-      return new WebpayPlus.MallTransaction(this.commerceCode, this.apiKey);
+      return new WebpayPlus.MallTransaction.buildForProduction(this.commerceCode, this.apiKey);
     } else {
       return WebpayPlus.MallTransaction.buildForIntegration(
         this.commerceCode,
@@ -179,11 +179,6 @@ export class WebpayService {
 
       const webPayPrefix = orgPaymentMethod.webPayPrefix || 'zeroq';
       const childCommerceCode = orgPaymentMethod.webPayChildCommerceCode;
-
-      this.logger.debug(
-        `WebPay config - Prefix: ${webPayPrefix}, Child Commerce: ${childCommerceCode}`,
-      );
-
       // PASO 1.5: Verificar si ya existe un pago pendiente para este carrito
       this.logger.log(`Verificando si existe un pago pendiente para cart ${cartId}...`);
       const existingPendingPayment = await this.paymentService.findPendingPaymentByCartId(cartId, organizationId.toString());
@@ -261,7 +256,7 @@ export class WebpayService {
           {
             paymentId: payment.id,
             buyOrder,
-            cartId,
+            organizationId
           },
           {
             delay: timeoutDate,
