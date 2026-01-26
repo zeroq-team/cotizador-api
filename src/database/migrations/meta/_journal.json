@@ -253,6 +253,27 @@
       "when": 1769024390504,
       "tag": "0035_rare_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1769439994189,
+      "tag": "0036_perfect_xavin",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1769440512328,
+      "tag": "0037_rainy_iron_patriot",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1769441714059,
+      "tag": "0038_lowly_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

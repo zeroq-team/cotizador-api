@@ -131,4 +131,30 @@ export class CustomizationFieldRepository {
         )
     }
   }
+
+  async findByName(name: string, organizationId: number): Promise<CustomizationField | null> {
+    const result = await this.databaseService.db
+      .select()
+      .from(customizationFields)
+      .where(
+        and(
+          eq(customizationFields.name, name),
+          eq(customizationFields.organizationId, organizationId)
+        )
+      )
+      .limit(1)
+
+    return result[0] || null
+  }
+
+  async findByNames(names: string[], organizationId: number): Promise<CustomizationField[]> {
+    if (names.length === 0) return []
+    
+    const allFields = await this.databaseService.db
+      .select()
+      .from(customizationFields)
+      .where(eq(customizationFields.organizationId, organizationId))
+
+    return allFields.filter(field => names.includes(field.name))
+  }
 }

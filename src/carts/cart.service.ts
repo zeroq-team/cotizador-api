@@ -25,6 +25,7 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { PriceListsService } from '../price-lists/price-lists.service';
 import { OrganizationService } from '../organization/organization.service';
+import { CustomizationFieldService } from '../customization-fields/customization-field.service';
 import { CONVERSATION_CUSTOM_STATUS_QUOTING } from '../config/configuration';
 
 @Injectable()
@@ -44,6 +45,7 @@ export class CartService {
     private readonly priceListEvaluationService: PriceListEvaluationService,
     @Inject(forwardRef(() => PriceListsService))
     private readonly organizationService: OrganizationService,
+    private readonly customizationFieldService: CustomizationFieldService,
   ) {}
 
   async createCart(
@@ -664,9 +666,14 @@ export class CartService {
           continue;
         }
 
-        await this.cartRepository.updateCartItem(itemCustomization.itemId, {
-          customizationValues: itemCustomization.customizationValues,
-        });
+        // Usar el método helper que calcula los precios automáticamente
+        await this.updateCartItemWithCustomizationPrice(
+          itemCustomization.itemId,
+          {
+            customizationValues: itemCustomization.customizationValues,
+          },
+          existingCart.organizationId,
+        );
       }
     }
     // Compatibilidad con versión anterior (deprecated)
@@ -674,13 +681,18 @@ export class CartService {
       this.logger.warn(
         'Using deprecated customization format. Please migrate to itemCustomizations.',
       );
-      
+
       // Update customization values for selected products
       for (const item of existingCart.items) {
         if (selectedProductIds.includes(item.id)) {
-          await this.cartRepository.updateCartItem(item.id, {
-            customizationValues,
-          });
+          // Usar el método helper que calcula los precios automáticamente
+          await this.updateCartItemWithCustomizationPrice(
+            item.id,
+            {
+              customizationValues,
+            },
+            existingCart.organizationId,
+          );
         }
       }
     } else {
@@ -1163,5 +1175,286 @@ export class CartService {
     }
 
     return await this.cartSuggestionsRepository.findByCartIdAndInteractionId(cartId, interactionId);
+  }
+
+  private readonly TAX_RATE = 0.19; // 19% IVA
+
+  /**
+   * Actualiza un item del carrito y calcula automáticamente los precios de personalización
+   * si se están actualizando los customizationValues
+   * @param itemId ID del item a actualizar
+   * @param updateData Datos a actualizar (puede incluir customizationValues)
+   * @param organizationId ID de la organización (necesario para calcular precios)
+   * @returns Item actualizado
+   */
+  async updateCartItemWithCustomizationPrice(
+    itemId: string,
+    updateData: Partial<CartItemRecord>,
+    organizationId: number,
+  ): Promise<CartItemRecord | null> {
+    // Si se están actualizando los customizationValues, calcular los precios y agregarlos al objeto
+    if (updateData.customizationValues !== undefined) {
+      await this.calculateAndEnrichCustomizationValues(
+        updateData.customizationValues as Record<string, any> | null,
+        organizationId,
+      );
+    }
+
+    // Actualizar el item
+    return await this.cartRepository.updateCartItem(itemId, updateData);
+  }
+
+  /**
+   * Calcula y enriquece los customizationValues con información de precio e impuestos
+   * Modifica el objeto directamente agregando price e includesTax a cada campo
+   * @param customizationValues Valores de personalización del item (se modifica in-place)
+   * @param organizationId ID de la organización
+   */
+  async calculateAndEnrichCustomizationValues(
+    customizationValues: Record<string, any> | null | undefined,
+    organizationId: number,
+  ): Promise<void> {
+    if (!customizationValues || Object.keys(customizationValues).length === 0) {
+      return;
+    }
+
+    // Convertir valores simples a objetos con value, price, priceWithTax, includesTax
+    const enrichedValues: Record<string, {
+      value: any;
+      price?: number;
+      priceWithTax?: number;
+      includesTax?: boolean;
+    }> = {};
+
+    // Primero, extraer los valores actuales (pueden venir como objetos o valores simples)
+    const fieldNames: string[] = [];
+    const currentValues: Record<string, any> = {};
+
+    for (const [key, val] of Object.entries(customizationValues)) {
+      // Si ya es un objeto con value, usar ese valor
+      if (val && typeof val === 'object' && 'value' in val) {
+        currentValues[key] = val.value;
+      } else {
+        // Si es un valor simple, usarlo directamente
+        currentValues[key] = val;
+      }
+      fieldNames.push(key);
+    }
+
+    // Obtener los campos de personalización
+    const fields = await this.customizationFieldService.findByNames(fieldNames, organizationId);
+
+    // Procesar cada campo
+    for (const field of fields) {
+      const fieldValue = currentValues[field.name];
+      if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+        // Si no hay valor, mantener el valor original del customizationValues si existe
+        const originalValue = customizationValues[field.name];
+        if (originalValue !== undefined) {
+          // Si ya es un objeto con value, mantenerlo; si no, convertirlo
+          if (originalValue && typeof originalValue === 'object' && 'value' in originalValue) {
+            enrichedValues[field.name] = originalValue;
+          } else {
+            enrichedValues[field.name] = {
+              value: originalValue,
+            };
+          }
+        }
+        continue;
+      }
+
+      // Verificar si el campo afecta el precio
+      if (!field.affectsPrice) {
+        // Si no afecta precio, solo guardar el valor
+        enrichedValues[field.name] = {
+          value: fieldValue,
+        };
+        continue;
+      }
+
+      // Por defecto se cobra IVA
+      const chargeTax = field.chargeTax ?? true;
+      let fieldPrice = 0;
+
+      // Para campos tipo 'select' con opciones
+      if (field.type === 'select' && field.options && field.options.length > 0) {
+        const selectedOption = field.options.find(
+          (opt: { value: string; label: string; price?: number }) => opt.value === fieldValue
+        );
+
+        if (selectedOption && selectedOption.price && selectedOption.price > 0) {
+          fieldPrice = selectedOption.price;
+        }
+      } 
+      // Para otros tipos de campos con priceModifier
+      else if (field.priceModifier && field.priceModifierType === 'fixed') {
+        const priceModifier = parseFloat(field.priceModifier);
+        if (!isNaN(priceModifier) && priceModifier > 0) {
+          // Para booleanos, solo aplicar si es true
+          if (field.type === 'boolean' && fieldValue !== true && fieldValue !== 'true') {
+            enrichedValues[field.name] = {
+              value: fieldValue,
+            };
+            continue;
+          }
+          
+          fieldPrice = priceModifier;
+        }
+      }
+
+      // Agregar el campo enriquecido con precio e información de impuestos
+      if (fieldPrice > 0) {
+        // Calcular precio con IVA si corresponde
+        const priceWithTax = chargeTax 
+          ? Math.round(fieldPrice * (1 + this.TAX_RATE))
+          : fieldPrice;
+        
+        enrichedValues[field.name] = {
+          value: fieldValue,
+          price: fieldPrice,
+          priceWithTax: priceWithTax, // Precio con IVA para trazabilidad
+          includesTax: chargeTax,
+        };
+      } else {
+        enrichedValues[field.name] = {
+          value: fieldValue,
+        };
+      }
+    }
+
+    // Agregar campos que no se encontraron en la base de datos (mantener valores originales)
+    for (const [key, val] of Object.entries(customizationValues)) {
+      if (!enrichedValues[key]) {
+        // Si ya es un objeto, mantenerlo; si no, convertirlo
+        if (val && typeof val === 'object' && 'value' in val) {
+          enrichedValues[key] = val;
+        } else {
+          enrichedValues[key] = {
+            value: val,
+          };
+        }
+      }
+    }
+
+    // Reemplazar el objeto original con el enriquecido
+    Object.assign(customizationValues, enrichedValues);
+  }
+
+  /**
+   * Obtiene una etiqueta descriptiva para el valor de personalización
+   */
+  private getCustomizationValueLabel(fieldType: string, value: any): string {
+    switch (fieldType) {
+      case 'boolean':
+        return value === true || value === 'true' ? 'Incluido' : 'No incluido';
+      case 'image':
+        return 'Imagen personalizada';
+      case 'text':
+        return typeof value === 'string' && value.length > 30 
+          ? value.substring(0, 30) + '...' 
+          : String(value);
+      case 'number':
+        return String(value);
+      default:
+        return String(value);
+    }
+  }
+
+  /**
+   * Calcula el precio total de personalización desde customizationValues enriquecidos
+   * @param customizationValues Valores de personalización con price, priceWithTax e includesTax
+   * @returns Precio neto y precio con IVA
+   */
+  private calculateCustomizationPriceFromValues(
+    customizationValues: Record<string, { value: any; price?: number; priceWithTax?: number; includesTax?: boolean }> | null | undefined,
+  ): { priceNet: number; priceWithTax: number } {
+    if (!customizationValues || Object.keys(customizationValues).length === 0) {
+      return { priceNet: 0, priceWithTax: 0 };
+    }
+
+    let priceNet = 0;
+    let priceWithTaxTotal = 0;
+
+    for (const [fieldName, fieldData] of Object.entries(customizationValues)) {
+      if (fieldData.price && fieldData.price > 0) {
+        priceNet += fieldData.price;
+        
+        // Si priceWithTax está disponible, usarlo directamente (más preciso para trazabilidad)
+        if (fieldData.priceWithTax !== undefined) {
+          priceWithTaxTotal += fieldData.priceWithTax;
+        } else {
+          // Si no está disponible, calcularlo
+          // Si includesTax es true, el precio ya incluye IVA, así que no agregamos más
+          // Si includesTax es false o undefined, agregamos IVA
+          if (fieldData.includesTax !== true) {
+            priceWithTaxTotal += fieldData.price * (1 + this.TAX_RATE);
+          } else {
+            priceWithTaxTotal += fieldData.price;
+          }
+        }
+      }
+    }
+
+    return {
+      priceNet: Math.round(priceNet),
+      priceWithTax: Math.round(priceWithTaxTotal),
+    };
+  }
+
+  /**
+   * Obtiene el carrito con precios de personalización calculados
+   * @param cartId ID del carrito
+   * @returns Carrito con items que incluyen precios de personalización
+   */
+  async getCartWithCustomizationPrices(
+    cartId: string,
+  ): Promise<
+    Cart & {
+      items: CartItemRecord[];
+      customer?: Customer | null;
+      totalCustomizationPriceNet?: number;
+      totalCustomizationPriceWithTax?: number;
+    }
+  > {
+    const cart = await this.cartRepository.findByIdWithItems(cartId);
+    if (!cart) {
+      throw new NotFoundException(`Cart with ID ${cartId} not found`);
+    }
+
+    let totalCustomizationPriceNet = 0;
+    let totalCustomizationPriceWithTax = 0;
+
+    // Calcular precios desde customizationValues enriquecidos
+    for (const item of cart.items) {
+      const customizationValues = item.customizationValues as Record<string, { value: any; price?: number; priceWithTax?: number; includesTax?: boolean }> | null | undefined;
+      
+      // Si los valores no están enriquecidos, enriquecerlos primero
+      if (customizationValues) {
+        let needsEnrichment = false;
+        for (const val of Object.values(customizationValues)) {
+          if (!val || typeof val !== 'object' || !('value' in val)) {
+            needsEnrichment = true;
+            break;
+          }
+        }
+
+        if (needsEnrichment) {
+          await this.calculateAndEnrichCustomizationValues(
+            customizationValues as any,
+            cart.organizationId,
+          );
+        }
+
+        const { priceNet, priceWithTax } = this.calculateCustomizationPriceFromValues(customizationValues);
+        totalCustomizationPriceNet += priceNet * item.quantity;
+        totalCustomizationPriceWithTax += priceWithTax * item.quantity;
+      }
+    }
+
+    return {
+      ...cart,
+      totalCustomizationPriceNet,
+      totalCustomizationPriceWithTax,
+    };
   }
 }

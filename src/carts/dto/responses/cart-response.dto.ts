@@ -61,5 +61,11 @@ export class CartResponseDto {
     description: 'Datos del cliente asociado al carrito' 
   })
   customer?: CustomerResponseDto
+
+  @ApiPropertyOptional({ 
+    example: 1650, 
+    description: 'Precio total de personalización del carrito (suma de todos los precios de personalización de los items, neto sin IVA)' 
+  })
+  totalCustomizationPrice?: number
 }
 

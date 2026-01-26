@@ -1,0 +1,1 @@
+ALTER TABLE "customization_fields" ADD COLUMN "charge_tax" boolean DEFAULT true;

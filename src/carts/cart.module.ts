@@ -14,9 +14,10 @@ import { PaymentModule } from '../payments/payment.module';
 import { ConversationsService } from '../conversations/conversations.service';
 import { PriceListsModule } from '../price-lists/price-lists.module';
 import { OrganizationModule } from '../organization/organization.module';
+import { CustomizationFieldModule } from '../customization-fields/customization-field.module';
 
 @Module({
-  imports: [DatabaseModule, ProductsModule, PaymentModule, PriceListsModule, OrganizationModule],
+  imports: [DatabaseModule, ProductsModule, PaymentModule, PriceListsModule, OrganizationModule, CustomizationFieldModule],
   controllers: [CartController],
   providers: [
     CartService,

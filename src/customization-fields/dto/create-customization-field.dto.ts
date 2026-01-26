@@ -13,12 +13,13 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-// Tipos de campos soportados - Simplificado a 4 tipos esenciales
+// Tipos de campos soportados
 export enum CustomizationFieldType {
   TEXT = 'text',       // Texto simple o multilínea
   NUMBER = 'number',   // Número (entero o decimal)
   BOOLEAN = 'boolean', // Verdadero/Falso (checkbox o switch)
   IMAGE = 'image',     // Carga de imagen
+  SELECT = 'select',   // Selección única con opciones (radio buttons) - puede afectar precio
 }
 
 // DTO para opciones de select/radio/checkboxes
@@ -240,6 +241,11 @@ export class CreateCustomizationFieldDto {
   @IsOptional()
   @IsEnum(['fixed', 'percentage'])
   priceModifierType?: 'fixed' | 'percentage';
+
+  @ApiPropertyOptional({ description: 'Cobrar IVA sobre este precio', example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  chargeTax?: boolean;
 
   // Configuración UI
   @ApiPropertyOptional({ description: 'Configuración de UI', type: UIConfigDto })

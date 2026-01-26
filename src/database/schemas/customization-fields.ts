@@ -27,13 +27,14 @@ export const customizationFields = pgTable('customization_fields', {
   placeholder: text('placeholder'), // Texto de placeholder
   helpText: text('help_text'), // Texto de ayuda adicional
   
-  // Tipo de campo - Simplificado a 4 tipos esenciales
+  // Tipo de campo
   type: text('type', { 
     enum: [
       'text',           // Texto simple o multilínea
       'number',         // Número (entero o decimal)
       'boolean',        // Verdadero/Falso (checkbox o switch)
       'image',          // Carga de imagen
+      'select',         // Selección única con opciones (radio buttons) - puede afectar precio
     ] 
   }).notNull(),
   
@@ -43,12 +44,11 @@ export const customizationFields = pgTable('customization_fields', {
   sortOrder: integer('sort_order').default(0),
   defaultValue: text('default_value'), // Valor por defecto
   
-  // Campo options ya no es necesario con los tipos simplificados
-  // Se mantiene por compatibilidad con datos existentes
+  // Opciones para campos tipo 'select' - cada opción puede tener precio adicional
   options: jsonb('options').$type<Array<{
     value: string;
     label: string;
-    price?: number;
+    price?: number;       // Precio adicional para esta opción (neto, sin IVA)
     description?: string;
     imageUrl?: string;
   }>>(),
@@ -79,6 +79,7 @@ export const customizationFields = pgTable('customization_fields', {
   affectsPrice: boolean('affects_price').default(false),
   priceModifier: decimal('price_modifier', { precision: 10, scale: 2 }), // Monto fijo o porcentaje
   priceModifierType: text('price_modifier_type', { enum: ['fixed', 'percentage'] }),
+  chargeTax: boolean('charge_tax').default(true), // Si se debe cobrar IVA sobre este precio
   
   // Configuración UI
   uiConfig: jsonb('ui_config').$type<{

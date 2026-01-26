@@ -46,7 +46,12 @@ export const cartItems = pgTable('cart_items', {
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
   quantity: integer('quantity').notNull().default(1),
   imageUrl: text('image_url'),
-  customizationValues: jsonb('customization_values'),
+  customizationValues: jsonb('customization_values').$type<Record<string, {
+    value: any;
+    price?: number; // Precio unitario del campo (neto, sin IVA)
+    priceWithTax?: number; // Precio unitario del campo con IVA incluido (para trazabilidad)
+    includesTax?: boolean; // Si el precio incluye IVA
+  }>>(),
   addedManually: boolean('added_manually').notNull().default(false), // true = agregado manualmente por ejecutivo, false = agregado por agente IA
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -93,11 +98,15 @@ export interface CartItem {
   quantity: number
   imageUrl?: string
   maxStock: number
-  customizationValues?: Record<string, any>
+  customizationValues?: Record<string, {
+    value: any;
+    price?: number; // Precio unitario del campo (neto, sin IVA)
+    priceWithTax?: number; // Precio unitario del campo con IVA incluido (para trazabilidad)
+    includesTax?: boolean; // Si el precio incluye IVA
+  }>
   addedManually: boolean // true = agregado manualmente por ejecutivo, false = agregado por agente IA
   createdAt: Date
   updatedAt: Date
-  // metadata?: Record<string, any>
 }
 
 // Zod schemas for validation

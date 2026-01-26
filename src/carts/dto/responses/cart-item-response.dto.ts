@@ -1,5 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
+export class CustomizationValueDto {
+  @ApiProperty({ example: 'bordado_estandar', description: 'Valor del campo de personalización' })
+  value: any
+
+  @ApiPropertyOptional({ example: 550, description: 'Precio unitario del campo (neto, sin IVA)' })
+  price?: number
+
+  @ApiPropertyOptional({ example: 655, description: 'Precio unitario del campo con IVA incluido (para trazabilidad)' })
+  priceWithTax?: number
+
+  @ApiPropertyOptional({ example: true, description: 'Indica si el precio incluye IVA' })
+  includesTax?: boolean
+}
+
 export class CartItemResponseDto {
   @ApiProperty({ example: 'item_789', description: 'ID único del item' })
   id: string
@@ -40,7 +54,13 @@ export class CartItemResponseDto {
   @ApiProperty({ example: '2024-01-01T00:00:00.000Z', description: 'Fecha de actualización' })
   updatedAt: Date
 
-  @ApiPropertyOptional({ example: { 'field-1': 'Logo personalizado' }, description: 'Valores de personalización' })
-  customizationValues?: Record<string, any>
+  @ApiPropertyOptional({ 
+    example: { 
+      'logo': { value: 'https://...', price: 0 },
+      'bordados': { value: 'bordado_estandar', price: 550, includesTax: true }
+    }, 
+    description: 'Valores de personalización con precio e información de impuestos' 
+  })
+  customizationValues?: Record<string, CustomizationValueDto>
 }
 
