@@ -47,6 +47,7 @@ export const cartItems = pgTable('cart_items', {
   quantity: integer('quantity').notNull().default(1),
   imageUrl: text('image_url'),
   customizationValues: jsonb('customization_values'),
+  addedManually: boolean('added_manually').notNull().default(false), // true = agregado manualmente por ejecutivo, false = agregado por agente IA
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -93,6 +94,7 @@ export interface CartItem {
   imageUrl?: string
   maxStock: number
   customizationValues?: Record<string, any>
+  addedManually: boolean // true = agregado manualmente por ejecutivo, false = agregado por agente IA
   createdAt: Date
   updatedAt: Date
   // metadata?: Record<string, any>

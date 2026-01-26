@@ -1,5 +1,5 @@
-import { IsString, IsNumber, Min, IsBoolean, isString } from 'class-validator'
-import { ApiProperty } from '@nestjs/swagger'
+import { IsString, IsNumber, Min, IsBoolean, IsOptional } from 'class-validator'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class CreateCartItemDto {
   @ApiProperty({
@@ -23,4 +23,14 @@ export class CreateCartItemDto {
   @ApiProperty({})
   @IsString()
   operation: 'add' | 'remove' = 'add'
+
+  @ApiPropertyOptional({
+    description: 'Indica si el producto fue agregado manualmente por un ejecutivo. Por defecto es false (agregado por el agente IA)',
+    example: false,
+    type: Boolean,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  addedManually?: boolean = false
 }

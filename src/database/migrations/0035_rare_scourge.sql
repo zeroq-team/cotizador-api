@@ -1,0 +1,1 @@
+ALTER TABLE "cart_items" ADD COLUMN "added_manually" boolean DEFAULT false NOT NULL;

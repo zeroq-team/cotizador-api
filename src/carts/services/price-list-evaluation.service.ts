@@ -27,6 +27,7 @@ export interface CartItemWithPrice {
   quantity: number;
   description?: string | null;
   imageUrl?: string | null;
+  addedManually?: boolean;
 }
 
 export interface PriceListProgress {

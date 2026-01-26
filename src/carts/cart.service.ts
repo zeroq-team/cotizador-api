@@ -123,6 +123,7 @@ export class CartService {
             product.inventory?.[0]?.available || item.quantity,
           ),
           imageUrl: product.media?.[0]?.url || null,
+          addedManually: item.addedManually ?? false,
         };
         const createdItem =
           await this.cartRepository.createCartItem(newCartItem);
@@ -334,6 +335,7 @@ export class CartService {
             quantity: item.quantity,
             description: item.description,
             imageUrl: item.imageUrl,
+            addedManually: item.addedManually ?? false,
           };
 
           await this.cartRepository.addCartItemByProductId({
