@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PriceListsService } from '../../price-lists/price-lists.service';
 import { ProductsService } from '../../products/products.service';
-import { Cart } from '../../database/schemas';
+import { Cart, CartItemRecord } from '../../database/schemas';
 
 export interface PriceListEvaluationContext {
   totalPrice: number;
@@ -62,15 +62,21 @@ export class PriceListEvaluationService {
 
   /**
    * Procesa items del carrito y calcula sus precios con la lista de precios aplicable
+   * @param items Items nuevos a agregar al carrito
+   * @param cart Carrito existente
+   * @param organizationId ID de la organización
+   * @param existingCartItems Items existentes en el carrito (opcional, para calcular total completo)
    * @returns Array de items con precios y información de la lista de precios aplicada
    */
   async processCartItemsWithPricing(
     items: Array<{ productId: number; quantity: number }>,
     cart: Cart,
     organizationId: string,
+    existingCartItems?: CartItemRecord[],
   ): Promise<{
     processedItems: CartItemWithPrice[];
     appliedPriceList: any;
+    shouldUpdateAllItems: boolean; // Indica si se debe actualizar todos los items del carrito
   }> {
     // Obtener la lista de precios por defecto
     const priceLists = await this.priceListsService.getPriceLists(
@@ -129,14 +135,42 @@ export class PriceListEvaluationService {
     }
 
     // Paso 2: Calcular totales con precios por defecto para evaluación
-    const totalQuantity = itemsWithDefaultPrices.reduce(
+    // Incluir items nuevos
+    let totalQuantity = itemsWithDefaultPrices.reduce(
       (sum, item) => sum + item.quantity,
       0,
     );
 
-    const totalPrice = itemsWithDefaultPrices.reduce(
+    let totalPrice = itemsWithDefaultPrices.reduce(
       (sum, item) => sum + Number(item.price) * item.quantity,
       0,
+    );
+
+    // Si hay items existentes, calcular sus totales con precios por defecto y sumarlos
+    if (existingCartItems && existingCartItems.length > 0) {
+      for (const existingItem of existingCartItems) {
+        try {
+          // Obtener el precio por defecto del producto existente
+          const { amount } = await this.getProductPrice(
+            existingItem.productId,
+            defaultPriceList.id,
+            organizationId,
+          );
+          totalPrice += Number(amount) * existingItem.quantity;
+          totalQuantity += existingItem.quantity;
+        } catch (error) {
+          // Si no se encuentra el precio por defecto, usar el precio actual del item
+          this.logger.warn(
+            `Could not get default price for existing product ${existingItem.productId}, using current price`,
+          );
+          totalPrice += Number(existingItem.price) * existingItem.quantity;
+          totalQuantity += existingItem.quantity;
+        }
+      }
+    }
+
+    this.logger.log(
+      `Total cart evaluation: ${totalQuantity} items, $${totalPrice.toFixed(2)} (including ${existingCartItems?.length || 0} existing items)`,
     );
 
     // Paso 3: Encontrar la lista de precios aplicable basada en prioridad de condiciones
@@ -225,10 +259,81 @@ export class PriceListEvaluationService {
       );
     }
 
+    // Determinar si se debe actualizar todos los items del carrito
+    // Esto ocurre cuando se aplica una lista de precios diferente a la por defecto
+    const shouldUpdateAllItems =
+      bestPriceList.id !== defaultPriceList.id &&
+      existingCartItems &&
+      existingCartItems.length > 0;
+
     return {
       processedItems: itemsWithDefaultPrices,
       appliedPriceList: bestPriceList,
+      shouldUpdateAllItems,
     };
+  }
+
+  /**
+   * Recalcula los precios de items existentes del carrito con una nueva lista de precios
+   * @param existingCartItems Items existentes en el carrito
+   * @param priceListId ID de la lista de precios a aplicar
+   * @param organizationId ID de la organización
+   * @returns Map de productId -> nuevo precio
+   */
+  async recalculateExistingItemsPrices(
+    existingCartItems: CartItemRecord[],
+    priceListId: number,
+    organizationId: string,
+  ): Promise<Map<number, string>> {
+    const priceMap = new Map<number, string>();
+
+    // Obtener la lista de precios por defecto como fallback
+    const priceLists = await this.priceListsService.getPriceLists(
+      organizationId,
+      { status: 'active' },
+    );
+
+    const defaultPriceList = priceLists.priceLists.find(
+      (priceList) => priceList.isDefault,
+    );
+
+    if (!defaultPriceList) {
+      this.logger.warn('Default price list not found for recalculation');
+      return priceMap;
+    }
+
+    for (const item of existingCartItems) {
+      try {
+        // Intentar obtener el precio de la nueva lista de precios
+        const { amount } = await this.getProductPrice(
+          item.productId,
+          priceListId,
+          organizationId,
+        );
+        priceMap.set(item.productId, amount);
+      } catch (error) {
+        // Si no hay precio en la nueva lista, usar el precio por defecto
+        this.logger.warn(
+          `No price found for product ${item.productId} in price list ${priceListId}, using default price`,
+        );
+        try {
+          const { amount } = await this.getProductPrice(
+            item.productId,
+            defaultPriceList.id,
+            organizationId,
+          );
+          priceMap.set(item.productId, amount);
+        } catch (fallbackError) {
+          // Si tampoco hay precio por defecto, mantener el precio actual
+          this.logger.warn(
+            `Could not get price for product ${item.productId} in any price list, keeping current price`,
+          );
+          priceMap.set(item.productId, item.price.toString());
+        }
+      }
+    }
+
+    return priceMap;
   }
 
   /**
