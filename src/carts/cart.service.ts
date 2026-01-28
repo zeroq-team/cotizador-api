@@ -267,14 +267,56 @@ export class CartService {
 
     // Add new items
     if (updateCartDto.items && updateCartDto.items.length > 0) {
-      // Procesar items con evaluación de lista de precios
-      const { processedItems, appliedPriceList } =
-        await this.priceListEvaluationService.processCartItemsWithPricing(
-          updateCartDto.items,
-          existingCart,
-          organizationId,
+      // Obtener items existentes del carrito para calcular el total completo
+      const existingCartWithItems =
+        await this.cartRepository.findByIdWithItems(id);
+      const existingCartItems = existingCartWithItems?.items || [];
+
+      // Procesar items con evaluación de lista de precios (incluyendo items existentes)
+      const {
+        processedItems,
+        appliedPriceList,
+        shouldUpdateAllItems,
+      } = await this.priceListEvaluationService.processCartItemsWithPricing(
+        updateCartDto.items,
+        existingCart,
+        organizationId,
+        existingCartItems,
+      );
+
+      // Si se debe actualizar todos los items del carrito (nueva lista de precios aplicada)
+      if (shouldUpdateAllItems) {
+        this.logger.log(
+          `Updating prices for all cart items with price list "${appliedPriceList.name}" (ID: ${appliedPriceList.id})`,
         );
-      // Actualizar o crear items manteniendo trazabilidad
+
+        // Recalcular precios de items existentes con la nueva lista de precios
+        const updatedPricesMap =
+          await this.priceListEvaluationService.recalculateExistingItemsPrices(
+            existingCartItems,
+            appliedPriceList.id,
+            organizationId,
+          );
+
+        // Actualizar precios de items existentes
+        for (const existingItem of existingCartItems) {
+          const newPrice = updatedPricesMap.get(existingItem.productId);
+          if (newPrice) {
+            // Comparar como strings para evitar problemas de precisión decimal
+            const currentPriceStr = existingItem.price.toString();
+            if (newPrice !== currentPriceStr) {
+              await this.cartRepository.updateCartItem(existingItem.id, {
+                price: newPrice,
+              });
+              this.logger.debug(
+                `Updated price for product ${existingItem.productId} from ${currentPriceStr} to ${newPrice}`,
+              );
+            }
+          }
+        }
+      }
+
+      // Actualizar o crear items nuevos manteniendo trazabilidad
       for (const item of processedItems) {
         const itemOperation =
           updateCartDto.items.find((i) => i.productId === item.productId)
