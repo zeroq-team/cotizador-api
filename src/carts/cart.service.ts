@@ -228,16 +228,22 @@ export class CartService {
       throw new NotFoundException(`Cart with ID ${id} not found`);
     }
 
-    // Calcular totales del carrito
-    const { totalItems, totalPrice } =
-      await this.cartRepository.calculateCartTotals(id);
+    // Calcular totales usando precios de la lista por defecto (para evaluar topes/condiciones)
+    const { totalPrice, totalQuantity } =
+      await this.priceListEvaluationService.calculateDefaultPriceCartTotals(
+        cart.items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+        })),
+        organizationId,
+      );
 
     // Obtener progreso hacia mejores listas de precios
     const progress =
       await this.priceListEvaluationService.calculatePriceListProgress(
         {
-          totalPrice: Number(totalPrice),
-          totalQuantity: totalItems,
+          totalPrice,
+          totalQuantity,
           cart,
         },
         organizationId,
@@ -269,6 +275,7 @@ export class CartService {
     }
 
     if (updateCartDto.suggestions && updateCartDto.suggestions.length > 0) {
+      this.logger.log(`Updating cart ${id} with suggestions ${updateCartDto.suggestions.length}`);
       await this.updateCartSuggestions(
         id,
         {
@@ -278,6 +285,7 @@ export class CartService {
       );
     }
 
+    this.logger.log(`Updating cart ${id} with items ${updateCartDto.items.length}`);
     // Add new items
     if (hasItems && existingCartWithItems) {
       const existingCartItems = existingCartWithItems.items || [];
@@ -298,11 +306,24 @@ export class CartService {
         existingCartItems,
       );
 
-      // Si se debe actualizar todos los items del carrito (nueva lista de precios aplicada)
-      if (shouldUpdateAllItems) {
-        this.logger.log(
-          `Updating prices for all cart items with price list "${appliedPriceList.name}" (ID: ${appliedPriceList.id})`,
-        );
+      this.logger.log(`Processed items: ${processedItems.length}`);
+      this.logger.log(`Applied price list: ${appliedPriceList.name}`);
+      this.logger.log(`Should update all items: ${shouldUpdateAllItems}`);
+
+      // Recalcular precios de items existentes SIEMPRE que existan items previos:
+      // - Subir de tramo (default -> descuento)
+      // - Bajar de tramo (descuento -> default) ✅ (esto antes no ocurría)
+      // - Mantener tramo (no-op; solo actualiza si detecta diferencias)
+      if (existingCartItems.length > 0) {
+        if (shouldUpdateAllItems) {
+          this.logger.log(
+            `Updating prices for all cart items with price list "${appliedPriceList.name}" (ID: ${appliedPriceList.id})`,
+          );
+        } else {
+          this.logger.debug(
+            `Repricing existing cart items using price list "${appliedPriceList.name}" (ID: ${appliedPriceList.id})`,
+          );
+        }
 
         const updatedPricesMap =
           await this.priceListEvaluationService.recalculateExistingItemsPrices(
@@ -329,8 +350,9 @@ export class CartService {
       // Actualizar o crear items reutilizando existingItemByProductId (evita N findCartItemByProductId)
       for (const item of processedItems) {
         const itemOperation =
-          updateCartDto.items.find((i) => i.productId === item.productId)
-            ?.operation || 'add';
+          updateCartDto.items.find(
+            (i) => Number(i.productId) === item.productId,
+          )?.operation || 'add';
         const existingItem = existingItemByProductId.get(item.productId);
 
         if (itemOperation === 'add') {
@@ -499,14 +521,16 @@ export class CartService {
             organizationId,
             { defaultPrice: true },
           );
-
+          this.logger.debug(`Product ${item.productId} found: ${product ? 'true' : 'false'}`);
           if (!product) {
+            this.logger.error(`Product ${item.productId} not found`);
             throw new BadRequestException(
               `Product with ID ${item.productId} not found`,
             );
           }
 
           if (!product.prices || product.prices.length === 0) {
+            this.logger.error(`Default price not found for product ${item.productId}`);
             throw new BadRequestException(
               `default price not found for product ${item.productId}`,
             );

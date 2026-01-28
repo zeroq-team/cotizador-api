@@ -81,6 +81,52 @@ export class PriceListEvaluationService {
   }
 
   /**
+   * Calcula totales del carrito usando SIEMPRE la lista de precios por defecto.
+   * Útil para evaluar topes/condiciones sin verse afectado por descuentos aplicados.
+   */
+  async calculateDefaultPriceCartTotals(
+    items: Array<{ productId: number; quantity: number }>,
+    organizationId: string,
+  ): Promise<{ totalPrice: number; totalQuantity: number }> {
+    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+    if (items.length === 0) return { totalPrice: 0, totalQuantity };
+
+    const priceLists = await this.priceListsService.getPriceLists(
+      organizationId,
+      { status: 'active' },
+    );
+    const defaultPriceList = priceLists.priceLists.find((pl) => pl.isDefault);
+    if (!defaultPriceList) {
+      throw new NotFoundException('Default price list not found');
+    }
+
+    const normalizedItems = items.map((item) => ({
+      productId: Number(item.productId),
+      quantity: item.quantity,
+    }));
+    const uniqueIds = [...new Set(normalizedItems.map((i) => i.productId))];
+
+    const { data: products } = await this.productsService.getProducts(
+      organizationId,
+      { ids: uniqueIds, include: 'prices', limit: 100 },
+    );
+    const pricesMap = this.buildProductPricesMap(products);
+
+    let totalPrice = 0;
+    for (const item of normalizedItems) {
+      const amount = pricesMap.get(item.productId)?.get(defaultPriceList.id);
+      if (amount === undefined) {
+        throw new NotFoundException(
+          `Price not found for product ${item.productId} in default price list`,
+        );
+      }
+      totalPrice += Number(amount) * item.quantity;
+    }
+
+    return { totalPrice, totalQuantity };
+  }
+
+  /**
    * Procesa items del carrito y calcula sus precios con la lista de precios aplicable
    * @param items Items a agregar o quitar (operation: 'add' | 'remove'); si no se indica, se asume 'add'
    * @param cart Carrito existente
@@ -116,8 +162,14 @@ export class PriceListEvaluationService {
       throw new NotFoundException('Default price list not found');
     }
 
+    // Normalizar productId a número (el payload puede enviar "3814" como string)
+    const normalizedItems = items.map((item) => ({
+      ...item,
+      productId: Number(item.productId),
+    }));
+
     // Paso 1: Cargar todos los productos de los items en una sola llamada (batch)
-    const uniqueItemIds = [...new Set(items.map((item) => item.productId))];
+    const uniqueItemIds = [...new Set(normalizedItems.map((item) => item.productId))];
     const { data: requestProducts } = await this.productsService.getProducts(
       organizationId,
       {
@@ -130,7 +182,7 @@ export class PriceListEvaluationService {
     const requestItemPricesMap = this.buildProductPricesMap(requestProducts);
 
     const itemsWithDefaultPrices: CartItemWithPrice[] = [];
-    for (const item of items) {
+    for (const item of normalizedItems) {
       const product = productById.get(item.productId);
       if (!product) {
         throw new NotFoundException(
@@ -191,7 +243,7 @@ export class PriceListEvaluationService {
     }
 
     // Segundo: sumar o restar la contribución de los items del request según operation
-    for (const item of items) {
+    for (const item of normalizedItems) {
       const defaultAmount = requestItemPricesMap
         .get(item.productId)
         ?.get(defaultPriceList.id);
@@ -227,7 +279,7 @@ export class PriceListEvaluationService {
     let lowestTotalPrice = totalPrice;
     if (bestPriceList.id !== defaultPriceList.id) {
       let currentTotal = 0;
-      for (const item of items) {
+      for (const item of normalizedItems) {
         const prices = requestItemPricesMap.get(item.productId);
         const amount =
           prices?.get(bestPriceList.id) ?? prices?.get(defaultPriceList.id);
@@ -552,6 +604,34 @@ export class PriceListEvaluationService {
     this.logger.log(
       `Found ${progressList.length} price lists with unfulfilled conditions to show progress`,
     );
+
+    // Ordenar por cercanía: primero la lista "más cerca" de cumplirse.
+    // Definición: mayor progreso mínimo entre condiciones (bottleneck),
+    // y como desempate: menor "remaining" en la(s) condición(es) bottleneck.
+    const getMinProgress = (p: PriceListProgress): number => {
+      const progresses = p.conditions.map((c) => c.progress);
+      return progresses.length > 0 ? Math.min(...progresses) : 0;
+    };
+
+    const getBottleneckRemaining = (p: PriceListProgress): number => {
+      const minProgress = getMinProgress(p);
+      const bottlenecks = p.conditions
+        .filter((c) => c.progress === minProgress)
+        .sort((a, b) => a.remaining - b.remaining);
+      return bottlenecks[0]?.remaining ?? Number.POSITIVE_INFINITY;
+    };
+
+    progressList.sort((a, b) => {
+      const aMin = getMinProgress(a);
+      const bMin = getMinProgress(b);
+      if (aMin !== bMin) return bMin - aMin;
+
+      const aRemaining = getBottleneckRemaining(a);
+      const bRemaining = getBottleneckRemaining(b);
+      if (aRemaining !== bRemaining) return aRemaining - bRemaining;
+
+      return a.priceListName.localeCompare(b.priceListName);
+    });
 
     return progressList;
   }
