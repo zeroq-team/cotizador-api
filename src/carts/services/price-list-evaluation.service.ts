@@ -782,9 +782,9 @@ export class PriceListEvaluationService {
   }
 
   /**
-   * Encuentra la lista de precios aplicable basada en prioridad de condiciones
-   * Las listas con condiciones de tipo "amount" se ordenan por min_amount (menor a mayor)
-   * y se evalúan en ese orden. Si no cumple la primera, no se evalúa la segunda.
+   * Encuentra la lista de precios aplicable basada en prioridad de condiciones.
+   * Se ordenan por min_amount de MAYOR a menor (500k, 100k) y se devuelve la primera
+   * que cumpla todas las condiciones, así se aplica el mejor tramo al que el cliente califica.
    */
   async findApplicablePriceListByPriority(
     context: PriceListEvaluationContext,
@@ -815,18 +815,18 @@ export class PriceListEvaluationService {
         );
       });
 
-    // Ordenar por min_amount de menor a mayor
+    // Ordenar por min_amount de MAYOR a menor (mejor tramo primero)
     priceListsWithAmountConditions.sort((a, b) => {
       const minAmountA = this.getMinAmountFromPriceList(a);
       const minAmountB = this.getMinAmountFromPriceList(b);
-      return minAmountA - minAmountB;
+      return minAmountB - minAmountA;
     });
 
     this.logger.debug(
-      `Found ${priceListsWithAmountConditions.length} price lists with amount conditions, sorted by min_amount`,
+      `Found ${priceListsWithAmountConditions.length} price lists with amount conditions, sorted by min_amount (highest first)`,
     );
 
-    // Evaluar cada lista en orden de prioridad (menor a mayor min_amount)
+    // Evaluar de mayor a menor: la primera que cumpla es la que se aplica
     for (const priceList of priceListsWithAmountConditions) {
       const activeConditions = priceList.conditions.filter(
         (c: any) => c.status === 'active',
@@ -836,7 +836,6 @@ export class PriceListEvaluationService {
         continue;
       }
 
-      // Verificar si TODAS las condiciones activas se cumplen
       const allConditionsMet = activeConditions.every((condition: any) =>
         this.evaluateCondition(
           condition,
@@ -851,16 +850,13 @@ export class PriceListEvaluationService {
           `Price list "${priceList.name}" (ID: ${priceList.id}) meets all conditions and will be applied`,
         );
         return priceList;
-      } else {
-        // Si no cumple esta lista, no evaluar las siguientes (ya están ordenadas por min_amount)
-        this.logger.debug(
-          `Price list "${priceList.name}" (ID: ${priceList.id}) does not meet conditions, stopping evaluation`,
-        );
-        break;
       }
+
+      this.logger.debug(
+        `Price list "${priceList.name}" (ID: ${priceList.id}) does not meet conditions, trying next tier`,
+      );
     }
 
-    // Si ninguna lista cumple las condiciones, retornar la lista por defecto
     this.logger.log('No price list meets conditions, using default price list');
     return defaultPriceList;
   }
