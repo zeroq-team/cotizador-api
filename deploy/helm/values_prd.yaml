@@ -30,7 +30,7 @@ service:
 # Ingress configuration - enables external access (web, api, etc)
 ingressRoute:
   enabled: true
-  host: api.zeroq.cl
+  host: zeroq.cl
   paths:
     - /services/quotation-api  # 🔄 CHANGE THIS: Update with your service path
   # Nota: Traefik detecta automáticamente conexiones WebSocket basándose en los headers
