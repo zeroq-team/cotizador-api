@@ -165,13 +165,16 @@ env:
     value: https://zeroq.cl/quoter
   - name: WEBPAY_API_KEY
     value: da25b230-4bc4-4dbb-b01b-6339703a85d5
+  - name: WEBPAY_ENVIRONMENT
+    value: production
 
   ## trigger.dev
   - name: TRIGGER_SECRET_KEY
-    valueFrom:
-      secretKeyRef:
-        name: prd-shared-eks-quotation-api-cronjob-apikey-sm-secret
-        key: TRIGGER_SECRET_KEY
+    value: tr_prod_WFYMsQNskbSPpBbwVKWJ
+    # valueFrom:
+    #   secretKeyRef:
+    #     name: prd-shared-eks-quotation-api-cronjob-apikey-sm-secret
+    #     key: TRIGGER_SECRET_KEY
 
 # Extra labels and annotations
 # extraLabels: {}
