@@ -48,20 +48,11 @@ resources:
 # Production tolerations for spot instances
 tolerations:
   - key: "spot"
-    operator: "Equal"
-    value: "true"
+    operator: "Exists"
     effect: "NoSchedule"
 
 # Production affinity for spot instances and pod distribution
 affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: spot
-              operator: In
-              values:
-                - "true"
   podAntiAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:
       - weight: 100
