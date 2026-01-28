@@ -291,7 +291,6 @@ export class CartService {
     }
 
     if (updateCartDto.suggestions && updateCartDto.suggestions.length > 0) {
-      this.logger.log(`Updating cart ${id} with suggestions ${updateCartDto.suggestions.length}`);
       await this.updateCartSuggestions(
         id,
         {
@@ -301,7 +300,6 @@ export class CartService {
       );
     }
 
-    this.logger.log(`Updating cart ${id} with items ${updateCartDto.items.length}`);
     // Add new items
     if (hasItems && existingCartWithItems) {
       const existingCartItems = existingCartWithItems.items || [];
@@ -322,24 +320,11 @@ export class CartService {
         existingCartItems,
       );
 
-      this.logger.log(`Processed items: ${processedItems.length}`);
-      this.logger.log(`Applied price list: ${appliedPriceList.name}`);
-      this.logger.log(`Should update all items: ${shouldUpdateAllItems}`);
-
       // Recalcular precios de items existentes SIEMPRE que existan items previos:
       // - Subir de tramo (default -> descuento)
       // - Bajar de tramo (descuento -> default) ✅ (esto antes no ocurría)
       // - Mantener tramo (no-op; solo actualiza si detecta diferencias)
       if (existingCartItems.length > 0) {
-        if (shouldUpdateAllItems) {
-          this.logger.log(
-            `Updating prices for all cart items with price list "${appliedPriceList.name}" (ID: ${appliedPriceList.id})`,
-          );
-        } else {
-          this.logger.debug(
-            `Repricing existing cart items using price list "${appliedPriceList.name}" (ID: ${appliedPriceList.id})`,
-          );
-        }
 
         const updatedPricesMap =
           await this.priceListEvaluationService.recalculateExistingItemsPrices(

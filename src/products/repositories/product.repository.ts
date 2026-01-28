@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { products, type Product, type NewProduct, productPrices, productMedia, inventoryLevels, inventoryLocations, priceLists } from '../../database/schemas';
-import { eq, and, inArray, desc, asc, sql, or, like, ilike } from 'drizzle-orm';
+import { eq, and, inArray, desc, sql, or, ilike } from 'drizzle-orm';
 import { ProductWithPricesAndMedia } from '../products.types';
 
 export interface ProductFilters {
@@ -89,7 +89,6 @@ export class ProductRepository {
       )
       .orderBy(productMedia.position, productMedia.createdAt);
 
-      console.log("pricesResult", pricesResult);
     // Mapear precios al formato esperado
     const prices = pricesResult.length > 0
       ? pricesResult.map((price) => ({

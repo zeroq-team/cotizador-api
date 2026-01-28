@@ -261,18 +261,10 @@ export class PriceListEvaluationService {
     totalPrice = Math.max(0, totalPrice);
     totalQuantity = Math.max(0, totalQuantity);
 
-    this.logger.log(
-      `Total cart evaluation: ${totalQuantity} items, $${totalPrice.toFixed(2)} (including ${existingCartItems?.length || 0} existing items)`,
-    );
-
     // Paso 3: Encontrar la lista de precios aplicable
     const bestPriceList = await this.findApplicablePriceListByPriority(
       { totalPrice, totalQuantity, cart },
       organizationId,
-    );
-
-    this.logger.log(
-      `Selected price list "${bestPriceList.name}" (ID: ${bestPriceList.id})`,
     );
 
     // Paso 4: Calcular total con lista seleccionada usando map (sin más llamadas)
@@ -307,10 +299,6 @@ export class PriceListEvaluationService {
           item.price = amount;
         }
       }
-      const savings = totalPrice - lowestTotalPrice;
-      this.logger.log(
-        `Prices updated with price list "${bestPriceList.name}". Savings: ${savings} (${((savings / totalPrice) * 100).toFixed(2)}%)`,
-      );
     }
 
     // Determinar si se debe actualizar todos los items del carrito
@@ -822,10 +810,6 @@ export class PriceListEvaluationService {
       return minAmountB - minAmountA;
     });
 
-    this.logger.debug(
-      `Found ${priceListsWithAmountConditions.length} price lists with amount conditions, sorted by min_amount (highest first)`,
-    );
-
     // Evaluar de mayor a menor: la primera que cumpla es la que se aplica
     for (const priceList of priceListsWithAmountConditions) {
       const activeConditions = priceList.conditions.filter(
@@ -846,18 +830,10 @@ export class PriceListEvaluationService {
       );
 
       if (allConditionsMet) {
-        this.logger.log(
-          `Price list "${priceList.name}" (ID: ${priceList.id}) meets all conditions and will be applied`,
-        );
         return priceList;
       }
-
-      this.logger.debug(
-        `Price list "${priceList.name}" (ID: ${priceList.id}) does not meet conditions, trying next tier`,
-      );
     }
 
-    this.logger.log('No price list meets conditions, using default price list');
     return defaultPriceList;
   }
 
