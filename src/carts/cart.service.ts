@@ -250,7 +250,20 @@ export class CartService {
     updateCartDto: UpdateCartDto,
     organizationId: string,
   ): Promise<Cart & { items: CartItemRecord[]; customer?: Customer | null }> {
-    const existingCart = await this.cartRepository.findById(id);
+    // Si hay items, cargar carrito con items en una sola llamada para reutilizar datos
+    const hasItems = updateCartDto.items && updateCartDto.items.length > 0;
+    const existingCartWithItems = hasItems
+      ? await this.cartRepository.findByIdWithItems(id)
+      : null;
+    if (hasItems && !existingCartWithItems) {
+      throw new NotFoundException(`Cart with ID ${id} not found`);
+    }
+    const existingCart: Cart | null = existingCartWithItems
+      ? (() => {
+          const { items: _omit, ...cart } = existingCartWithItems;
+          return cart as Cart;
+        })()
+      : await this.cartRepository.findById(id);
     if (!existingCart) {
       throw new NotFoundException(`Cart with ID ${id} not found`);
     }
@@ -266,11 +279,12 @@ export class CartService {
     }
 
     // Add new items
-    if (updateCartDto.items && updateCartDto.items.length > 0) {
-      // Obtener items existentes del carrito para calcular el total completo
-      const existingCartWithItems =
-        await this.cartRepository.findByIdWithItems(id);
-      const existingCartItems = existingCartWithItems?.items || [];
+    if (hasItems && existingCartWithItems) {
+      const existingCartItems = existingCartWithItems.items || [];
+      // Map productId -> item para evitar N llamadas a findCartItemByProductId
+      const existingItemByProductId = new Map(
+        existingCartItems.map((i) => [i.productId, i]),
+      );
 
       // Procesar items con evaluación de lista de precios (incluyendo items existentes)
       const {
@@ -290,7 +304,6 @@ export class CartService {
           `Updating prices for all cart items with price list "${appliedPriceList.name}" (ID: ${appliedPriceList.id})`,
         );
 
-        // Recalcular precios de items existentes con la nueva lista de precios
         const updatedPricesMap =
           await this.priceListEvaluationService.recalculateExistingItemsPrices(
             existingCartItems,
@@ -298,37 +311,28 @@ export class CartService {
             organizationId,
           );
 
-        // Actualizar precios de items existentes
-        for (const existingItem of existingCartItems) {
-          const newPrice = updatedPricesMap.get(existingItem.productId);
-          if (newPrice) {
-            // Comparar como strings para evitar problemas de precisión decimal
-            const currentPriceStr = existingItem.price.toString();
-            if (newPrice !== currentPriceStr) {
-              await this.cartRepository.updateCartItem(existingItem.id, {
-                price: newPrice,
-              });
-              this.logger.debug(
-                `Updated price for product ${existingItem.productId} from ${currentPriceStr} to ${newPrice}`,
-              );
-            }
-          }
-        }
+        // Actualizar precios en paralelo en lugar de secuencial
+        const priceUpdates = existingCartItems
+          .filter((existingItem) => {
+            const newPrice = updatedPricesMap.get(existingItem.productId);
+            if (!newPrice) return false;
+            return newPrice !== existingItem.price.toString();
+          })
+          .map((existingItem) =>
+            this.cartRepository.updateCartItem(existingItem.id, {
+              price: updatedPricesMap.get(existingItem.productId)!,
+            }),
+          );
+        await Promise.all(priceUpdates);
       }
 
-      // Actualizar o crear items nuevos manteniendo trazabilidad
+      // Actualizar o crear items reutilizando existingItemByProductId (evita N findCartItemByProductId)
       for (const item of processedItems) {
         const itemOperation =
           updateCartDto.items.find((i) => i.productId === item.productId)
             ?.operation || 'add';
+        const existingItem = existingItemByProductId.get(item.productId);
 
-        // Buscar si el item ya existe en el carrito
-        const existingItem = await this.cartRepository.findCartItemByProductId(
-          id,
-          item.productId,
-        );
-
-        // Item no existe: crear solo si la operación es 'add'
         if (itemOperation === 'add') {
           const cartItem: NewCartItem = {
             cartId: id,
@@ -348,6 +352,7 @@ export class CartService {
             quantity: item.quantity,
             cartItem,
             organizationId,
+            existingItem: existingItem ?? undefined,
           });
         } else {
           try {
@@ -360,7 +365,6 @@ export class CartService {
             this.logger?.error?.(
               `Failed to remove cart item (cartId: ${id}, productId: ${item.productId}): ${error.message || error}`,
             );
-            // Optionally rethrow or handle gracefully
             throw new BadRequestException(
               `No se pudo eliminar el producto (${item.name || item.productId}) del carrito.`,
             );

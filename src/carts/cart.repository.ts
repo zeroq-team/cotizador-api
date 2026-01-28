@@ -232,14 +232,17 @@ export class CartRepository {
     quantity,
     cartItem,
     organizationId,
+    existingItem,
   }: {
     cartId: string;
     productId: number;
     quantity: number;
     cartItem: NewCartItem;
     organizationId: string;
+    existingItem?: CartItemRecord | null;
   }): Promise<CartItemRecord> {
-    const productItem = await this.findCartItemByProductId(cartId, productId);
+    const productItem =
+      existingItem ?? (await this.findCartItemByProductId(cartId, productId));
 
     if (!productItem) {
       return await this.createCartItem(cartItem);
