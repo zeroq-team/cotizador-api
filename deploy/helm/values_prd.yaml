@@ -92,14 +92,17 @@ topologySpreadConstraints:
 # nameOverride: ""
 
 # External secrets configuration
-# externalSecrets:
-#   secretManager:
-#     enabled: false
-#     list:
-#       # Pre-configured MongoDB secrets - uncomment to use
-#       # - name: prd-shared-mongodb-eks-user
-#       #   refreshInterval: 24h
-#       
+externalSecrets:
+  secretManager:
+    enabled: false
+    list:
+     - name: prd-shared-eks-quotation-api-cronjob-apikey
+       refreshInterval: 24h
+     - name: prd-shared-eks-quotation-api-webpay-credentials
+       refreshInterval: 24h
+     - name: prd-shared-eks-quotation-api-aws-access
+       refreshInterval: 24h
+      
 #   parameterStore:
 #     enabled: false
 #     list: []
@@ -160,6 +163,8 @@ env:
     value: 597055555535
   - name: WEBPAY_RETURN_BASE_URL
     value: https://zeroq.cl/quoter
+  - name: WEBPAY_API_KEY
+    value: da25b230-4bc4-4dbb-b01b-6339703a85d5
 
   ## trigger.dev
   - name: TRIGGER_SECRET_KEY
