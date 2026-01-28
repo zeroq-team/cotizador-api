@@ -131,12 +131,7 @@ env:
   - name: DATABASE_URL
     value: postgresql://postgres:0wci2ol250yhzhwttw3tvufel9pg2coc@shortline.proxy.rlwy.net:19075/prod
   
-  - name: CONVERSATIONS_API_URL
-    value: http://conversations-api/services/conversations
-  
   ## aws
-  - name: AWS_S3_BUCKET_NAME
-    value: dev-dynamic-quote-us-east-2-181276599638
   - name: AWS_REGION
     value: us-east-2
   - name: AWS_ACCESS_KEY_ID
@@ -149,10 +144,17 @@ env:
       secretKeyRef:
         name: prd-shared-eks-quotation-api-aws-access-sm-secret
         key: AWS_SECRET_ACCESS_KEY
+  - name: AWS_S3_BUCKET_NAME
+    value: dev-dynamic-quote-us-east-2-181276599638
+  
 
   ## cloud front
   - name: CLOUD_FRONT_DOMAIN
     value: https://d3umbno2snuojo.cloudfront.net
+
+  ## conversations api
+  - name: CONVERSATIONS_API_URL
+    value: http://conversations-api/services/conversations
   
   ## products api
   - name: PRODUCTS_API_URL

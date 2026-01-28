@@ -22,7 +22,6 @@ import { CreateProofPaymentDto } from '../payments/dto/create-proof-payment.dto'
 import { ConversationsService } from '../conversations/conversations.service';
 import { PriceListEvaluationService } from './services/price-list-evaluation.service';
 import { PriceListsService } from '../price-lists/price-lists.service';
-import { OrganizationService } from '../organization/organization.service';
 import { CustomizationFieldService } from '../customization-fields/customization-field.service';
 import { CONVERSATION_CUSTOM_STATUS_QUOTING } from '../config/configuration';
 
