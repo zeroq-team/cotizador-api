@@ -160,7 +160,7 @@ env:
   
   ## webpay
   - name: WEBPAY_COMMERCE_CODE
-    value: 597055555535
+    value: 597053029267
   - name: WEBPAY_RETURN_BASE_URL
     value: https://zeroq.cl/quoter
   - name: WEBPAY_API_KEY
