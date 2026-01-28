@@ -5,6 +5,9 @@ import { CartService } from '../carts/cart.service';
 import { OrganizationService } from '../organization/organization.service';
 import { TAX_RATE } from '../config/configuration';
 import { PdfGenerateResponseDto } from './dto/pdf-response.dto';
+import { CustomerService } from '../customers/customer.service';
+import { DeliveryAddress } from 'src/database/schemas/delivery-addresses';
+import { PaymentService } from 'src/payments/payment.service';
 
 const PDF_API_URL =
   'https://7xpgh2gijh.execute-api.us-east-2.amazonaws.com/v1/pdf/generate/receipt';
@@ -86,6 +89,8 @@ export class PdfService {
     private readonly cartService: CartService,
     private readonly organizationService: OrganizationService,
     private readonly configService: ConfigService,
+    private readonly customerService: CustomerService,
+    private readonly paymentService: PaymentService,
   ) {}
 
   /**
@@ -110,10 +115,10 @@ export class PdfService {
   /**
    * Transforma un Cart y CompanyConfig al formato esperado por la API de PDF
    */
-  private transformQuoteToPdfRequest(
+  private async transformQuoteToPdfRequest(
     cart: any,
     companyConfig: CompanyConfig,
-  ): PdfGenerateRequest {
+  ): Promise<PdfGenerateRequest> {
     // Calcular valores del resumen
     const subtotal = cart.items.reduce(
       (sum: number, item: any) => sum + Number(item.price) * item.quantity,
@@ -134,11 +139,10 @@ export class PdfService {
     const tax = baseForTax * TAX_RATE;
     const total = baseForTax + tax;
 
-    // Formatear fecha de dispatch (usar fecha actual o fecha de creación del cart)
-    const dispatchDate = cart.createdAt
-      ? new Date(cart.createdAt).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0];
+    const payment = await this.paymentService.findByCartId(cart.id, cart.organizationId.toString());
 
+    let validPayment = payment.find((p) => p.status === 'completed');
+  
     // Mapear items
     const items = cart.items.map((item: any) => ({
       reference: item.sku || item.productId?.toString() || '',
@@ -148,11 +152,27 @@ export class PdfService {
       total_price: Math.round(Number(item.price) * item.quantity),
     }));
 
+
+    console.log('cart.items', cart.items);
+    // tiene personalizacion?
+    const hasCustomization = cart.items.some((item: any) => item.customizationValues && Object.keys(item.customizationValues).length > 0);
+
     // Obtener dirección de entrega
-    const defaultAddress =
-      cart.customer?.deliveryAddresses?.find(
-        (addr: any) => addr.isDefault,
-      ) || cart.customer?.deliveryAddresses?.[0];
+    let deliveryAddress: DeliveryAddress | undefined = undefined;
+
+    if (cart.deliveryAddressId) {
+      deliveryAddress = await this.customerService.findDeliveryAddressById(cart.deliveryAddressId);
+    }
+
+    // Formatear fecha de dispatch (usar fecha actual o fecha de creación del cart)
+    let dispatchDate = validPayment ? validPayment.paymentDate : new Date().toISOString().split('T')[0];
+
+    // si tiene personalizacion, a la fecha de pago se le suma 8 dias, sino solamente 5 dias
+    if (hasCustomization) {
+      dispatchDate = new Date(new Date(dispatchDate).getTime() + 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    } else {
+      dispatchDate = new Date(new Date(dispatchDate).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    }
 
     return {
       branding: {
@@ -183,22 +203,19 @@ export class PdfService {
       order: {
         order_number: cart.id.slice(-8).toUpperCase(),
         dispatch_date: dispatchDate,
-        status: cart.status === 'paid' ? 'Procesado' : 'Pendiente',
-        payment_status: cart.status === 'paid' ? 'Pagado' : 'Pendiente',
+        status: validPayment ? 'Procesado' : 'Esperando Pago',
+        payment_status: validPayment ? 'Pagado' : 'Esperando Pago',
         shipping: {
           carrier: 'Por definir',
           status: 'Pendiente',
         },
         delivery_address: {
           company_name: cart.customer?.fullName,
-          region: defaultAddress?.region || 'Por definir',
-          city: defaultAddress?.city || defaultAddress?.commune || 'Por definir',
-          office:
-            defaultAddress?.office ||
-            defaultAddress?.apartment ||
-            'Por definir',
-          street_number: defaultAddress?.streetNumber
-            ? `${defaultAddress.street || ''} ${defaultAddress.streetNumber}`.trim()
+          region: deliveryAddress?.region || 'Por definir',
+          city: deliveryAddress?.commune || deliveryAddress?.commune || 'Por definir',
+          office: deliveryAddress?.office || deliveryAddress?.office || 'Por definir',
+          street_number: deliveryAddress?.streetNumber
+            ? `${deliveryAddress.street || ''} ${deliveryAddress.streetNumber}`.trim()
             : 'Por definir',
         },
         items,
@@ -241,7 +258,7 @@ export class PdfService {
       const companyConfig = this.getCompanyConfigFromOrganization(organization);
 
       // Transformar datos al formato esperado
-      const requestBody = this.transformQuoteToPdfRequest(cart, companyConfig);
+      const requestBody = await this.transformQuoteToPdfRequest(cart, companyConfig);
 
       // Llamar al servicio externo
       const response = await axios.post<PdfGenerateResponseDto>(
