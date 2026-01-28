@@ -186,9 +186,17 @@ export class CartService {
       throw new NotFoundException(`Cart with ID ${id} not found`);
     }
 
-    // Si hay organizationId, calcular información de lista de precios aplicada
     if (organizationId && cart.items && cart.items.length > 0) {
-      return { ...cart, items: cart.items };
+      const savingsInfo =
+        await this.priceListEvaluationService.calculateCartSavingsInfo(
+          cart.items.map((i) => ({
+            productId: Number(i.productId),
+            quantity: i.quantity,
+          })),
+          cart,
+          organizationId,
+        );
+      return { ...cart, items: cart.items, ...savingsInfo };
     }
 
     return cart;
@@ -214,9 +222,17 @@ export class CartService {
       );
     }
 
-    // Si hay organizationId, calcular información de lista de precios aplicada
     if (organizationId && cart.items && cart.items.length > 0) {
-      return { ...cart, items: cart.items };
+      const savingsInfo =
+        await this.priceListEvaluationService.calculateCartSavingsInfo(
+          cart.items.map((i) => ({
+            productId: Number(i.productId),
+            quantity: i.quantity,
+          })),
+          cart,
+          organizationId,
+        );
+      return { ...cart, items: cart.items, ...savingsInfo };
     }
 
     return cart;
